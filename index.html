@@ -529,26 +529,46 @@ async function searchIssues(jql, fields = 'summary,status,priority,issuetype,ass
 
 // ── Customer list ─────────────────────────────────────────────────────────────
 async function loadCustomers() {
-  // Fetch custom field options for customfield_10100
+  // Strategy 1: field context options API (complete list, instant)
   try {
-    const data = await jiraFetch('/rest/api/3/field/customfield_10100/context');
-    const contexts = data.values || [];
-    if (contexts.length) {
-      const ctxId = contexts[0].id;
-      const opts = await jiraFetch(`/rest/api/3/field/customfield_10100/context/${ctxId}/option`, { maxResults: 1000 });
-      allCustomers = (opts.values || []).map(o => o.value).sort();
+    const ctxData = await jiraFetch('/rest/api/3/field/customfield_10100/context', { maxResults: 50 });
+    const contexts = ctxData.values || [];
+    for (const ctx of contexts) {
+      let startAt = 0;
+      while (true) {
+        const opts = await jiraFetch(
+          `/rest/api/3/field/customfield_10100/context/${ctx.id}/option`,
+          { maxResults: 100, startAt }
+        );
+        const values = opts.values || [];
+        values.forEach(o => { if (o.value) allCustomers.push(o.value); });
+        if (opts.isLast || values.length === 0) break;
+        startAt += values.length;
+      }
     }
+    allCustomers = [...new Set(allCustomers)].sort();
   } catch(e) {}
 
-  // Fallback: extract from recent issues if field options API fails
+  // Strategy 2: page through all issues with cf[10100] populated
   if (!allCustomers.length) {
     try {
-      const issues = await searchIssues(`cf[10100] is not EMPTY ORDER BY created DESC`, 'customfield_10100', 200);
       const seen = new Set();
-      issues.forEach(i => {
-        const v = i.fields?.customfield_10100?.[0]?.value;
-        if (v) seen.add(v);
-      });
+      let startAt = 0;
+      while (true) {
+        const data = await jiraFetch('/rest/api/3/issue/search', {
+          jql: 'cf[10100] is not EMPTY ORDER BY created DESC',
+          fields: 'customfield_10100',
+          maxResults: 100,
+          startAt,
+        });
+        const issues = data.issues || [];
+        issues.forEach(i => {
+          const v = i.fields?.customfield_10100?.[0]?.value;
+          if (v) seen.add(v);
+        });
+        if (data.isLast || issues.length === 0 || startAt + issues.length >= (data.total || 0)) break;
+        startAt += issues.length;
+      }
       allCustomers = [...seen].sort();
     } catch(e) {}
   }
