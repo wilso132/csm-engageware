@@ -516,8 +516,27 @@ async function jiraFetch(path, params = {}) {
 
   const r = await fetch(url, { headers });
   if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
-  if (!r.ok) throw new Error(`Jira API error ${r.status}`);
+  if (r.status === 404) {
+    console.error('[CSM] 404 on:', url.toString());
+    throw new Error(`Not found: ${path}`);
+  }
+  if (!r.ok) throw new Error(`Jira API error ${r.status}: ${await r.text()}`);
   return r.json();
+}
+
+async function getCloudId() {
+  // Fetch the accessible Atlassian resources for this OAuth token
+  // to confirm the cloud ID and that the site is authorized
+  const r = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
+    headers: {
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    }
+  });
+  if (!r.ok) throw new Error('Could not fetch accessible resources');
+  const sites = await r.json();
+  console.log('[CSM] Accessible sites:', sites.map(s => s.name + ' (' + s.id + ')'));
+  return sites;
 }
 
 async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate', maxResults = 100) {
@@ -786,6 +805,8 @@ async function initApp() {
   document.getElementById('auth-btn').textContent = 'Sign out';
   document.getElementById('auth-btn').onclick = logout;
   document.getElementById('auth-btn').className = 'secondary';
+  // Log accessible sites so we can debug cloud ID issues
+  try { await getCloudId(); } catch(e) { console.warn('[CSM] getCloudId failed:', e); }
   await loadCustomers();
 }
 
