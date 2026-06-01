@@ -573,6 +573,9 @@ async function loadCustomers() {
     } catch(e) {}
   }
 
+  console.log(`[CSM] Loaded ${allCustomers.length} customers via ${allCustomers.length ? 'field options' : 'fallback'}`);
+  console.log('[CSM] First 10:', allCustomers.slice(0, 10));
+  console.log('[CSM] Last 10:', allCustomers.slice(-10));
   setupSearch();
 }
 
