@@ -1,1 +1,806 @@
-<h1>Hello</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engageware CSM Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --accent: #4f6ef7;
+    --accent2: #7c3aed;
+    --text: #e8eaf6;
+    --muted: #6b7280;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--accent); letter-spacing: 0.05em; }
+  .logo span { color: var(--muted); }
+  #auth-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  #auth-btn:hover { opacity: 0.85; }
+  #auth-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  /* ── Main ── */
+  main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+  /* ── Auth screen ── */
+  #auth-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    gap: 1rem;
+  }
+  #auth-screen h2 { font-size: 24px; font-weight: 500; }
+  #auth-screen p { color: var(--muted); font-size: 14px; max-width: 380px; line-height: 1.6; }
+  #auth-screen .connect-btn {
+    margin-top: 1rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  #auth-screen .connect-btn:hover { opacity: 0.85; }
+
+  /* ── Customer picker ── */
+  #picker-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 2rem;
+  }
+  #customer-search {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #customer-search:focus { border-color: var(--accent); }
+  #customer-search::placeholder { color: var(--muted); }
+
+  #customer-dropdown {
+    position: relative;
+  }
+  #dropdown-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 200;
+    display: none;
+  }
+  #dropdown-list.open { display: block; }
+  .dropdown-item {
+    padding: 9px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .dropdown-item:hover, .dropdown-item.selected { background: var(--border); }
+
+  /* ── Customer badge ── */
+  #customer-badge {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  #customer-badge.visible { display: flex; }
+  #clear-customer {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+  }
+  #clear-customer:hover { color: var(--danger); }
+
+  /* ── Bucket tabs ── */
+  .bucket-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+  .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tab-btn .count {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    margin-left: 5px;
+  }
+  .tab-btn:not(.active) .count {
+    background: var(--surface2);
+    color: var(--muted);
+  }
+
+  /* ── Stats row ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .stat-value.danger { color: var(--danger); }
+  .stat-value.warning { color: var(--warning); }
+  .stat-value.success { color: var(--success); }
+  .stat-value.info { color: var(--info); }
+
+  /* ── Issues table ── */
+  .issues-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .issues-table th {
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
+  }
+  .issues-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .issues-table tr:last-child td { border-bottom: none; }
+  .issues-table tr:hover td { background: var(--surface2); }
+
+  .issue-key {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .issue-key:hover { text-decoration: underline; }
+  .issue-summary { color: var(--text); max-width: 380px; }
+  .issue-summary a { color: inherit; text-decoration: none; }
+  .issue-summary a:hover { color: var(--accent); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .badge-todo    { background: #1e293b; color: #94a3b8; }
+  .badge-inprog  { background: #1e3a5f; color: #60a5fa; }
+  .badge-done    { background: #14532d; color: #4ade80; }
+  .badge-other   { background: #3b1f5e; color: #c084fc; }
+
+  .priority-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+  .p-highest, .p-blocker { background: #ef4444; }
+  .p-high    { background: #f97316; }
+  .p-medium  { background: #eab308; }
+  .p-low     { background: #3b82f6; }
+  .p-lowest  { background: #6b7280; }
+
+  /* ── Table container ── */
+  .table-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-title { font-size: 13px; font-weight: 600; }
+  .table-meta  { font-size: 12px; color: var(--muted); }
+
+  /* ── Loading / empty ── */
+  .loading, .empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-bottom: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Age chip ── */
+  .age-chip {
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .age-chip.old { color: var(--danger); }
+  .age-chip.stale { color: var(--warning); }
+
+  #app { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">engageware<span>/</span>csm</div>
+  <div id="header-right">
+    <button id="auth-btn" onclick="startAuth()">Connect to Jira</button>
+  </div>
+</header>
+
+<main>
+  <!-- Auth screen -->
+  <div id="auth-screen">
+    <h2>CSM Dashboard</h2>
+    <p>Connect your Jira account to view live customer data across all projects.</p>
+    <button class="connect-btn" onclick="startAuth()">Connect to Jira →</button>
+  </div>
+
+  <!-- App (shown after auth) -->
+  <div id="app">
+    <!-- Customer picker -->
+    <div id="picker-row">
+      <div id="customer-dropdown" style="flex:1; position:relative;">
+        <input id="customer-search" type="text" placeholder="Search customers..." autocomplete="off" />
+        <div id="dropdown-list"></div>
+      </div>
+      <div id="customer-badge">
+        <span id="badge-name"></span>
+        <button id="clear-customer" onclick="clearCustomer()" title="Clear">×</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row" style="display:none;">
+      <div class="stat-card">
+        <div class="stat-label">Open Support</div>
+        <div class="stat-value info" id="stat-support">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open Engineering</div>
+        <div class="stat-value info" id="stat-eng">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open OPS</div>
+        <div class="stat-value info" id="stat-ops">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Aging (14d+)</div>
+        <div class="stat-value danger" id="stat-aging">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Resolved (30d)</div>
+        <div class="stat-value success" id="stat-resolved">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Feature Requests</div>
+        <div class="stat-value warning" id="stat-fr">—</div>
+      </div>
+    </div>
+
+    <!-- Bucket tabs -->
+    <div class="bucket-tabs" id="bucket-tabs" style="display:none;">
+      <button class="tab-btn active" onclick="switchTab('support')"     id="tab-support">Support <span class="count" id="cnt-support">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('engineering')" id="tab-engineering">Engineering <span class="count" id="cnt-engineering">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('ops')"         id="tab-ops">OPS <span class="count" id="cnt-ops">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('aging')"       id="tab-aging">⚠ Aging <span class="count" id="cnt-aging">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('resolved')"    id="tab-resolved">✓ Resolved <span class="count" id="cnt-resolved">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('fr')"          id="tab-fr">Feature Requests <span class="count" id="cnt-fr">0</span></button>
+    </div>
+
+    <!-- Issues panel -->
+    <div id="issues-panel"></div>
+  </div>
+</main>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const CLIENT_ID    = 'LmckYe4wFOygrvm4VEKmj0D6MTTP6Gjx';
+const REDIRECT_URI = 'https://wilso132.github.io/csm-engageware/';
+const JIRA_BASE    = 'https://api.atlassian.com/ex/jira/884f99a4-d05f-496a-8a4c-ff1e2c2d2bc9';
+const CUSTOMER_FIELD = 'cf[10100]';
+
+const SUPPORT_PROJECTS     = ['ASC','SCS','ACSC','TCST','AIC','AMXE'];
+const ENGINEERING_PROJECTS = ['AVS','AS','CORE','FLASH','GN','INTS','LIV','OUTB','PLT','SPID','UN','SEC','LEAR','PRD','ODSGI','IT','IC','ET','FR','LB'];
+const OPS_PROJECTS         = ['OPS'];
+const ALL_PROJECTS         = [...SUPPORT_PROJECTS, ...ENGINEERING_PROJECTS, ...OPS_PROJECTS];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let accessToken    = localStorage.getItem('ew_access_token');
+let allCustomers   = [];
+let selectedCustomer = null;
+let currentTab     = 'support';
+let issueCache     = {};
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function startAuth() {
+  const state = Math.random().toString(36).slice(2);
+  localStorage.setItem('ew_oauth_state', state);
+  const params = new URLSearchParams({
+    audience:      'api.atlassian.com',
+    client_id:     CLIENT_ID,
+    scope:         'read:jira-work read:jira-user offline_access',
+    redirect_uri:  REDIRECT_URI,
+    state,
+    response_type: 'code',
+    prompt:        'consent',
+  });
+  window.location = 'https://auth.atlassian.com/authorize?' + params;
+}
+
+function logout() {
+  localStorage.removeItem('ew_access_token');
+  localStorage.removeItem('ew_oauth_state');
+  accessToken = null;
+  showAuthScreen();
+}
+
+async function handleCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code   = params.get('code');
+  const state  = params.get('state');
+  if (!code) return false;
+
+  // Clear URL
+  window.history.replaceState({}, '', window.location.pathname);
+
+  // Exchange code for token via Atlassian token endpoint
+  // NOTE: Requires a backend for client_secret. For public PKCE apps,
+  // we store the token directly after the implicit-style exchange.
+  // Since Atlassian's 3LO requires client_secret, we use the token
+  // returned via fragment or prompt the user to paste it.
+  // For now, use the access token from the URL fragment if present.
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  const token    = fragment.get('access_token') || params.get('access_token');
+
+  if (token) {
+    accessToken = token;
+    localStorage.setItem('ew_access_token', token);
+    return true;
+  }
+
+  // Show manual token entry as fallback
+  showTokenEntry(code);
+  return false;
+}
+
+function showTokenEntry(code) {
+  document.getElementById('auth-screen').innerHTML = `
+    <h2>One more step</h2>
+    <p>Atlassian's OAuth requires a server to exchange the code for a token. 
+       Paste your Jira API token below instead — it's saved only on your device.</p>
+    <input id="manual-token" type="password" placeholder="Paste API token here..."
+      style="width:100%;max-width:420px;padding:10px 14px;border-radius:8px;
+             border:1px solid var(--border);background:var(--surface);
+             color:var(--text);font-size:14px;margin:12px 0;outline:none;" />
+    <button class="connect-btn" onclick="saveManualToken()">Save & Continue →</button>
+    <p style="margin-top:8px;font-size:12px;">
+      Get a token at 
+      <a href="https://id.atlassian.com/manage-profile/security/api-tokens" 
+         target="_blank" style="color:var(--accent);">id.atlassian.com</a>
+    </p>`;
+}
+
+function saveManualToken() {
+  const token = document.getElementById('manual-token').value.trim();
+  if (!token) return;
+  // Encode as Basic auth: email:token → base64
+  const email = prompt('Enter your Atlassian email:');
+  if (!email) return;
+  const encoded = btoa(`${email}:${token}`);
+  accessToken = 'Basic ' + encoded;
+  localStorage.setItem('ew_access_token', accessToken);
+  initApp();
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function jiraFetch(path, params = {}) {
+  const url = new URL(`${JIRA_BASE}${path}`);
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+
+  const isBasic = accessToken && accessToken.startsWith('Basic ');
+  const headers = {
+    'Accept': 'application/json',
+    'Authorization': isBasic ? accessToken : `Bearer ${accessToken}`,
+  };
+
+  const r = await fetch(url, { headers });
+  if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
+  if (!r.ok) throw new Error(`Jira API error ${r.status}`);
+  return r.json();
+}
+
+async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate', maxResults = 100) {
+  const data = await jiraFetch('/rest/api/3/issue/search', {
+    jql, fields, maxResults, validateQuery: 'warn'
+  });
+  return data.issues || [];
+}
+
+// ── Customer list ─────────────────────────────────────────────────────────────
+async function loadCustomers() {
+  // Fetch custom field options for customfield_10100
+  try {
+    const data = await jiraFetch('/rest/api/3/field/customfield_10100/context');
+    const contexts = data.values || [];
+    if (contexts.length) {
+      const ctxId = contexts[0].id;
+      const opts = await jiraFetch(`/rest/api/3/field/customfield_10100/context/${ctxId}/option`, { maxResults: 1000 });
+      allCustomers = (opts.values || []).map(o => o.value).sort();
+    }
+  } catch(e) {}
+
+  // Fallback: extract from recent issues if field options API fails
+  if (!allCustomers.length) {
+    try {
+      const issues = await searchIssues(`cf[10100] is not EMPTY ORDER BY created DESC`, 'customfield_10100', 200);
+      const seen = new Set();
+      issues.forEach(i => {
+        const v = i.fields?.customfield_10100?.[0]?.value;
+        if (v) seen.add(v);
+      });
+      allCustomers = [...seen].sort();
+    } catch(e) {}
+  }
+
+  setupSearch();
+}
+
+// ── Search / dropdown ─────────────────────────────────────────────────────────
+function setupSearch() {
+  const input = document.getElementById('customer-search');
+  const list  = document.getElementById('dropdown-list');
+
+  input.addEventListener('input', () => {
+    const q = input.value.toLowerCase();
+    const matches = allCustomers.filter(c => c.toLowerCase().includes(q)).slice(0, 50);
+    renderDropdown(matches);
+    list.classList.toggle('open', matches.length > 0 && q.length > 0);
+  });
+
+  input.addEventListener('focus', () => {
+    if (input.value.length > 0) list.classList.add('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (!document.getElementById('customer-dropdown').contains(e.target))
+      list.classList.remove('open');
+  });
+}
+
+function renderDropdown(customers) {
+  const list = document.getElementById('dropdown-list');
+  list.innerHTML = customers.map(c =>
+    `<div class="dropdown-item" onclick="selectCustomer('${c.replace(/'/g,"\\'")}')">
+       ${c}
+     </div>`
+  ).join('');
+}
+
+function selectCustomer(name) {
+  selectedCustomer = name;
+  issueCache = {};
+  document.getElementById('customer-search').value = '';
+  document.getElementById('dropdown-list').classList.remove('open');
+  document.getElementById('badge-name').textContent = name;
+  document.getElementById('customer-badge').classList.add('visible');
+  document.getElementById('stats-row').style.display = 'grid';
+  document.getElementById('bucket-tabs').style.display = 'flex';
+  loadAllBuckets();
+}
+
+function clearCustomer() {
+  selectedCustomer = null;
+  issueCache = {};
+  document.getElementById('customer-badge').classList.remove('visible');
+  document.getElementById('stats-row').style.display = 'none';
+  document.getElementById('bucket-tabs').style.display = 'none';
+  document.getElementById('issues-panel').innerHTML = '';
+  document.getElementById('customer-search').value = '';
+}
+
+// ── JQL builders ─────────────────────────────────────────────────────────────
+function jqlProjects(projects) {
+  return '(' + projects.map(p => `"${p}"`).join(', ') + ')';
+}
+
+function customerJql(customer) {
+  return `${CUSTOMER_FIELD} = "${customer}"`;
+}
+
+const BUCKETS = {
+  support: c => `project in ${jqlProjects(SUPPORT_PROJECTS)} AND ${customerJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
+  engineering: c => `project in ${jqlProjects(ENGINEERING_PROJECTS)} AND ${customerJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
+  ops: c => `project in ${jqlProjects(OPS_PROJECTS)} AND ${customerJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
+  aging: c => `project in ${jqlProjects([...SUPPORT_PROJECTS,...OPS_PROJECTS])} AND ${customerJql(c)} AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC`,
+  resolved: c => `project in ${jqlProjects(ALL_PROJECTS)} AND ${customerJql(c)} AND statusCategory = Done AND resolved >= "-30d" ORDER BY resolutiondate DESC`,
+  fr: c => `project in ("FR","PRD") AND ${customerJql(c)} ORDER BY statusCategory ASC, priority ASC`,
+};
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function loadAllBuckets() {
+  const c = selectedCustomer;
+  const keys = Object.keys(BUCKETS);
+
+  // Reset stats
+  keys.forEach(k => {
+    const el = document.getElementById(`stat-${k === 'engineering' ? 'eng' : k}`);
+    if (el) el.textContent = '…';
+  });
+
+  // Load all in parallel
+  await Promise.all(keys.map(async key => {
+    try {
+      const issues = await searchIssues(BUCKETS[key](c));
+      issueCache[key] = issues;
+      updateCount(key, issues.length);
+    } catch(e) {
+      issueCache[key] = [];
+      updateCount(key, '!');
+    }
+  }));
+
+  renderTab(currentTab);
+}
+
+function updateCount(key, count) {
+  const statMap = { support:'support', engineering:'eng', ops:'ops', aging:'aging', resolved:'resolved', fr:'fr' };
+  const statEl  = document.getElementById(`stat-${statMap[key]}`);
+  const cntEl   = document.getElementById(`cnt-${key}`);
+  if (statEl) statEl.textContent = count;
+  if (cntEl)  cntEl.textContent  = count;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  renderTab(tab);
+}
+
+function renderTab(tab) {
+  const panel  = document.getElementById('issues-panel');
+  const issues = issueCache[tab];
+
+  if (!issues) {
+    panel.innerHTML = `<div class="table-container"><div class="loading"><div class="spinner"></div><br>Loading…</div></div>`;
+    return;
+  }
+  if (!issues.length) {
+    panel.innerHTML = `<div class="table-container"><div class="empty">No issues found.</div></div>`;
+    return;
+  }
+
+  const TITLES = {
+    support:     'Support – Open Tickets',
+    engineering: 'Engineering – Open Issues',
+    ops:         'OPS – Open Tickets',
+    aging:       'Aging – No update in 14+ days',
+    resolved:    'Resolved – Last 30 days',
+    fr:          'Feature Requests',
+  };
+
+  panel.innerHTML = `
+    <div class="table-container">
+      <div class="table-header">
+        <span class="table-title">${TITLES[tab]}</span>
+        <span class="table-meta">${issues.length} issue${issues.length !== 1 ? 's' : ''}</span>
+      </div>
+      <table class="issues-table">
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Summary</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Assignee</th>
+            <th>${tab === 'resolved' ? 'Resolved' : 'Updated'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${issues.map(i => renderRow(i, tab)).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderRow(issue, tab) {
+  const f         = issue.fields;
+  const key       = issue.key;
+  const summary   = f.summary || '';
+  const status    = f.status?.name || '';
+  const statusCat = f.status?.statusCategory?.key || '';
+  const priority  = f.priority?.name || '';
+  const assignee  = f.assignee?.displayName || '—';
+  const updated   = f.updated || f.resolutiondate || f.created || '';
+  const url       = `https://engageware.atlassian.net/browse/${key}`;
+
+  const statusBadge = (() => {
+    if (statusCat === 'new')           return `<span class="badge badge-todo">${status}</span>`;
+    if (statusCat === 'indeterminate') return `<span class="badge badge-inprog">${status}</span>`;
+    if (statusCat === 'done')          return `<span class="badge badge-done">${status}</span>`;
+    return `<span class="badge badge-other">${status}</span>`;
+  })();
+
+  const prioClass = (() => {
+    const p = priority.toLowerCase();
+    if (p.includes('highest') || p.includes('blocker')) return 'p-highest';
+    if (p.includes('high'))   return 'p-high';
+    if (p.includes('medium')) return 'p-medium';
+    if (p.includes('low') && !p.includes('lowest')) return 'p-low';
+    return 'p-lowest';
+  })();
+
+  const ageStr  = updated ? formatAge(updated, tab) : '';
+
+  return `<tr>
+    <td><a class="issue-key" href="${url}" target="_blank">${key}</a></td>
+    <td class="issue-summary"><a href="${url}" target="_blank">${escHtml(summary)}</a></td>
+    <td>${statusBadge}</td>
+    <td><span class="priority-dot ${prioClass}"></span>${priority}</td>
+    <td style="font-size:12px;color:var(--muted)">${escHtml(assignee)}</td>
+    <td>${ageStr}</td>
+  </tr>`;
+}
+
+function formatAge(dateStr, tab) {
+  const d    = new Date(dateStr);
+  const days = Math.floor((Date.now() - d) / 86400000);
+  const cls  = days >= 30 ? 'old' : days >= 14 ? 'stale' : '';
+  const label = tab === 'resolved'
+    ? d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })
+    : days === 0 ? 'Today' : days === 1 ? '1d ago' : `${days}d ago`;
+  return `<span class="age-chip ${cls}">${label}</span>`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function showAuthScreen() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-btn').textContent = 'Connect to Jira';
+  document.getElementById('auth-btn').onclick = startAuth;
+}
+
+async function initApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('auth-btn').textContent = 'Sign out';
+  document.getElementById('auth-btn').onclick = logout;
+  document.getElementById('auth-btn').className = 'secondary';
+  await loadCustomers();
+}
+
+async function init() {
+  // Handle OAuth callback
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('code')) {
+    await handleCallback();
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
+  if (accessToken) {
+    await initApp();
+  } else {
+    showAuthScreen();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
