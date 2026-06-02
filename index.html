@@ -407,7 +407,11 @@
 // ── Config ────────────────────────────────────────────────────────────────────
 const CLIENT_ID    = 'LmckYe4wFOygrvm4VEKmj0D6MTTP6Gjx';
 const REDIRECT_URI = 'https://wilso132.github.io/csm-engageware/';
-const JIRA_BASE    = 'https://api.atlassian.com/ex/jira/884f99a4-d05f-496a-8a4c-ff1e2c2d2bc9';
+const JIRA_BASE_OAUTH = 'https://api.atlassian.com/ex/jira/884f99a4-d05f-496a-8a4c-ff1e2c2d2bc9';
+const JIRA_BASE_BASIC = 'https://engageware.atlassian.net';
+function getJiraBase() {
+  return (accessToken && accessToken.startsWith('Basic ')) ? JIRA_BASE_BASIC : JIRA_BASE_OAUTH;
+}
 const CUSTOMER_FIELD = 'cf[10100]';
 
 const SUPPORT_PROJECTS     = ['ASC','SCS','ACSC','TCST','AIC','AMXE'];
@@ -505,7 +509,7 @@ function saveManualToken() {
 
 // ── API ───────────────────────────────────────────────────────────────────────
 async function jiraFetch(path, params = {}) {
-  const url = new URL(`${JIRA_BASE}${path}`);
+  const url = new URL(`${getJiraBase()}${path}`);
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
 
   const isBasic = accessToken && accessToken.startsWith('Basic ');
@@ -805,8 +809,6 @@ async function initApp() {
   document.getElementById('auth-btn').textContent = 'Sign out';
   document.getElementById('auth-btn').onclick = logout;
   document.getElementById('auth-btn').className = 'secondary';
-  // Log accessible sites so we can debug cloud ID issues
-  try { await getCloudId(); } catch(e) { console.warn('[CSM] getCloudId failed:', e); }
   await loadCustomers();
 }
 
