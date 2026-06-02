@@ -394,7 +394,7 @@
 </head>
 <body>
 
-<div id="version-tag">v1.0602.0145</div>
+<div id="version-tag">v1.0602.0148</div>
 <header>
   <div class="logo">engageware<span>/</span>csm</div>
   <div id="header-right">
@@ -469,6 +469,13 @@
 </main>
 
 <script>
+// ── Preserve URL params before OAuth redirect wipes them ─────────────────────
+(function() {
+  var p = new URLSearchParams(window.location.search);
+  if (p.get('customer')) sessionStorage.setItem('ew_pending_customer', p.get('customer'));
+  if (p.get('tab'))      sessionStorage.setItem('ew_pending_tab',      p.get('tab'));
+})();
+
 // ── Config ────────────────────────────────────────────────────────────────────
 const CLIENT_ID    = 'LmckYe4wFOygrvm4VEKmj0D6MTTP6Gjx';
 const REDIRECT_URI = 'https://wilso132.github.io/csm-engageware/';
@@ -679,10 +686,11 @@ function setupSearch() {
       list.classList.remove('open');
   });
 
-  // URL params take priority over localStorage
-  const urlParams     = new URLSearchParams(window.location.search);
-  const urlCustomer   = urlParams.get('customer');
-  const urlTab        = urlParams.get('tab');
+  // URL params (saved to sessionStorage before OAuth) take priority over localStorage
+  const urlCustomer   = sessionStorage.getItem('ew_pending_customer');
+  const urlTab        = sessionStorage.getItem('ew_pending_tab');
+  if (urlCustomer) { sessionStorage.removeItem('ew_pending_customer'); }
+  if (urlTab)      { sessionStorage.removeItem('ew_pending_tab'); }
   const savedCustomer = urlCustomer || localStorage.getItem('ew_customer');
   const savedTab      = urlTab      || localStorage.getItem('ew_tab');
   if (savedCustomer && allCustomers.includes(savedCustomer)) {
