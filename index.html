@@ -959,8 +959,7 @@ function copyTable(btn, tab) {
     const date = updated ? new Date(updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
     return [
       issue.key,
-      (f.summary || '').replace(/[	
-]/g, ' '),
+      (f.summary || '').split(String.fromCharCode(9)).join(' ').split(String.fromCharCode(10)).join(' '),
       f.status && f.status.name ? f.status.name : '',
       f.priority && f.priority.name ? f.priority.name : '',
       f.assignee && f.assignee.displayName ? f.assignee.displayName : '',
