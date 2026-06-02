@@ -348,6 +348,62 @@
   .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
   .copy-btn.copied { border-color: var(--success); color: var(--success); }
 
+  /* ── Last comment toggle ── */
+  .comment-toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .toggle-switch {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 18px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-track { background: var(--accent); }
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-track::after { transform: translateX(14px); }
+
+  .comment-row td {
+    background: var(--surface2);
+    padding: 8px 12px 10px 32px;
+    font-size: 12px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+  .comment-meta {
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 3px;
+  }
+  .comment-body {
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .comment-none { color: var(--muted); font-style: italic; }
+
   /* ── Version footer ── */
   #version-tag {
     display: block;
@@ -506,6 +562,7 @@ const ALL_PROJECTS         = [...SUPPORT_PROJECTS, ...ENGINEERING_PROJECTS, ...O
 let accessToken    = localStorage.getItem('ew_access_token');
 let allCustomers   = [];
 let selectedCustomer = null;
+let showComments = localStorage.getItem('ew_comments') === 'true';
 let currentTab     = 'support';
 let issueCache     = {};
 
@@ -625,7 +682,7 @@ async function jiraFetch(path, params = {}) {
 
 
 
-async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate', maxResults = 100) {
+async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate,comment', maxResults = 100) {
   // search/jql uses nextPageToken pagination, not startAt
   const allIssues = [];
   let nextPageToken = null;
@@ -838,6 +895,13 @@ function renderTab(tab) {
         <span class="table-title">${TITLES[tab]}</span>
         <div style="display:flex;align-items:center;gap:12px;">
           <span class="table-meta">${issues.length} issue${issues.length !== 1 ? 's' : ''}</span>
+          <label class="comment-toggle-wrap" title="Show last comment for each ticket">
+            <span>Last Comment</span>
+            <span class="toggle-switch">
+              <input type="checkbox" id="comment-toggle" ${showComments ? 'checked' : ''}>
+              <span class="toggle-track"></span>
+            </span>
+          </label>
           <button class="copy-btn" id="copy-btn-${tab}" title="Copy table to clipboard">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             Copy
@@ -864,6 +928,16 @@ function renderTab(tab) {
   // Wire up copy button after DOM insertion
   const copyBtn = document.getElementById('copy-btn-' + tab);
   if (copyBtn) copyBtn.addEventListener('click', () => copyTable(copyBtn, tab));
+
+  // Wire up comment toggle
+  const toggle = document.getElementById('comment-toggle');
+  if (toggle) {
+    toggle.addEventListener('change', function() {
+      showComments = this.checked;
+      localStorage.setItem('ew_comments', showComments);
+      renderTab(currentTab);
+    });
+  }
 }
 
 function renderRow(issue, tab) {
@@ -895,6 +969,21 @@ function renderRow(issue, tab) {
 
   const ageStr  = updated ? formatAge(updated, tab) : '';
 
+  let commentRow = '';
+  if (showComments) {
+    const comments = (f.comment && f.comment.comments) ? f.comment.comments : [];
+    if (comments.length) {
+      const last    = comments[comments.length - 1];
+      const author  = (last.author && last.author.displayName) ? last.author.displayName : 'Unknown';
+      const dateStr = last.created ? new Date(last.created).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) : '';
+      const raw     = extractCommentText(last.body);
+      const text    = raw.length > 300 ? raw.slice(0, 297) + '...' : raw;
+      commentRow = `<tr class="comment-row"><td colspan="6"><div class="comment-meta">${escHtml(author)} &middot; ${escHtml(dateStr)}</div><div class="comment-body">${escHtml(text)}</div></td></tr>`;
+    } else {
+      commentRow = `<tr class="comment-row"><td colspan="6"><span class="comment-none">No comments</span></td></tr>`;
+    }
+  }
+
   return `<tr>
     <td><a class="issue-key" href="${url}" target="_blank">${key}</a></td>
     <td class="issue-summary"><a href="${url}" target="_blank">${escHtml(summary)}</a></td>
@@ -902,7 +991,21 @@ function renderRow(issue, tab) {
     <td><span class="priority-dot ${prioClass}"></span>${priority}</td>
     <td style="font-size:12px;color:var(--muted)">${escHtml(assignee)}</td>
     <td>${ageStr}</td>
-  </tr>`;
+  </tr>${commentRow}`;
+}
+
+function extractCommentText(body) {
+  if (!body) return '';
+  if (typeof body === 'string') return body;
+  if (body.type === 'doc' && body.content) return body.content.map(extractNodeText).join(' ').replace(/  +/g, ' ').trim();
+  return '';
+}
+
+function extractNodeText(node) {
+  if (!node) return '';
+  if (node.type === 'text') return node.text || '';
+  if (node.content) return node.content.map(extractNodeText).join(' ');
+  return '';
 }
 
 function formatAge(dateStr, tab) {
@@ -964,12 +1067,13 @@ function copyTable(btn, tab) {
 
   const dateCol = tab === 'resolved' ? 'Resolved' : 'Updated';
   const headers = ['Key', 'Summary', 'Status', 'Priority', 'Assignee', dateCol];
+  if (showComments) headers.push('Last Comment Author', 'Last Comment Date', 'Last Comment');
 
   const rows = issues.map(function(issue) {
     const f = issue.fields;
     const updated = f.updated || f.resolutiondate || f.created || '';
     const date = updated ? new Date(updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-    return [
+    const row = [
       issue.key,
       (f.summary || '').split(String.fromCharCode(9)).join(' ').split(String.fromCharCode(10)).join(' '),
       f.status && f.status.name ? f.status.name : '',
@@ -977,6 +1081,19 @@ function copyTable(btn, tab) {
       f.assignee && f.assignee.displayName ? f.assignee.displayName : '',
       date,
     ];
+    if (showComments) {
+      const comments = (f.comment && f.comment.comments) ? f.comment.comments : [];
+      if (comments.length) {
+        const last = comments[comments.length - 1];
+        const author = (last.author && last.author.displayName) ? last.author.displayName : '';
+        const cDate = last.created ? new Date(last.created).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) : '';
+        const text = extractCommentText(last.body).replace(/\s+/g, ' ').trim();
+        row.push(author, cDate, text.length > 500 ? text.slice(0, 497) + '...' : text);
+      } else {
+        row.push('', '', '');
+      }
+    }
+    return row;
   });
 
   // Build HTML table for PowerPoint/Word/Excel paste
@@ -1063,6 +1180,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.0158</div>
+<div id="version-tag">v1.0602.1347</div>
 </body>
 </html>
