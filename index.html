@@ -413,23 +413,19 @@ let JIRA_BASE = localStorage.getItem('ew_jira_base') ||
 function getJiraBase() { return JIRA_BASE; }
 
 async function resolveCloudId() {
-  try {
-    const r = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
-    });
-    if (!r.ok) throw new Error('Could not fetch sites');
-    const sites = await r.json();
-    console.log('[CSM] Accessible sites:', sites);
-    // Find engageware site
-    const site = sites.find(s => s.url && s.url.includes('engageware')) || sites[0];
-    if (site) {
-      JIRA_BASE = `https://api.atlassian.com/ex/jira/${site.id}`;
-      localStorage.setItem('ew_jira_base', JIRA_BASE);
-      console.log('[CSM] Using cloud ID:', site.id, 'for', site.url);
-    }
-  } catch(e) {
-    console.warn('[CSM] Could not resolve cloud ID, using default:', e.message);
-  }
+  const r = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+  });
+  const text = await r.text();
+  console.log('[CSM] accessible-resources status:', r.status);
+  console.log('[CSM] accessible-resources response:', text);
+  if (!r.ok) throw new Error(`accessible-resources failed: ${r.status} ${text}`);
+  const sites = JSON.parse(text);
+  if (!sites.length) throw new Error('No Atlassian sites found for this token — OAuth app may not be authorized for any site');
+  const site = sites.find(s => s.url && s.url.includes('engageware')) || sites[0];
+  JIRA_BASE = `https://api.atlassian.com/ex/jira/${site.id}`;
+  localStorage.setItem('ew_jira_base', JIRA_BASE);
+  console.log('[CSM] Resolved JIRA_BASE:', JIRA_BASE);
 }
 const CUSTOMER_FIELD = 'cf[10100]';
 
@@ -501,7 +497,19 @@ async function handleCallback() {
         localStorage.setItem('ew_refresh_token', data.refresh_token);
       }
       // Fetch the correct cloud ID for this token
-      await resolveCloudId();
+      try {
+        await resolveCloudId();
+      } catch(cloudErr) {
+        document.getElementById('auth-screen').innerHTML = `
+          <h2>Site access error</h2>
+          <p style="color:var(--danger);margin-bottom:1rem;">${cloudErr.message}</p>
+          <p style="color:var(--muted);font-size:13px;margin-bottom:1rem;">
+            The OAuth app may not be authorized for the Engageware Jira site yet.
+            Try signing in again — on the Atlassian screen, make sure to select the Engageware site.
+          </p>
+          <button class="connect-btn" onclick="startAuth()">Try again →</button>`;
+        return false;
+      }
       return true;
     } else {
       throw new Error(data.error_description || 'No access token returned');
