@@ -1021,34 +1021,7 @@ function setupSearch() {
   });
 
   // URL params (saved to sessionStorage before OAuth) take priority over localStorage
-  const urlCustomer = sessionStorage.getItem('ew_pending_customer');
-  const urlOrg      = sessionStorage.getItem('ew_pending_org');
-  const urlTab      = sessionStorage.getItem('ew_pending_tab');
-  sessionStorage.removeItem('ew_pending_customer');
-  sessionStorage.removeItem('ew_pending_org');
-  sessionStorage.removeItem('ew_pending_tab');
-
-  const savedCustomer = urlCustomer || localStorage.getItem('ew_customer');
-  const savedOrg      = urlOrg      || localStorage.getItem('ew_org');
-  const savedTab      = urlTab      || localStorage.getItem('ew_tab');
-
-  const restoreTab = (tab) => {
-    if (tab) {
-      currentTab = tab;
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      const tabEl = document.getElementById(`tab-${tab}`);
-      if (tabEl) tabEl.classList.add('active');
-    }
-  };
-
-  // Org takes priority if both are set (org-based search is more specific)
-  if (savedOrg && allOrgs.includes(savedOrg)) {
-    restoreTab(savedTab);
-    selectOrg(savedOrg);
-  } else if (savedCustomer && allCustomers.includes(savedCustomer)) {
-    restoreTab(savedTab);
-    selectCustomer(savedCustomer);
-  }
+  // Restore is handled after both loadCustomers + loadOrgs complete (see initApp)
 }
 
 function renderDropdown(customers) {
@@ -1062,14 +1035,18 @@ function renderDropdown(customers) {
 
 function selectCustomer(name) {
   selectedCustomer = name;
+  selectedOrg = null;
+  localStorage.removeItem('ew_org');
   issueCache = {};
   document.getElementById('customer-search').value = '';
+  document.getElementById('org-search').value = '';
   document.getElementById('customer-dropdown-list').classList.remove('open');
   document.getElementById('badge-name').textContent = name;
   document.getElementById('customer-badge').classList.add('visible');
   document.getElementById('stats-row').style.display = 'grid';
   document.getElementById('bucket-tabs').style.display = 'flex';
   localStorage.setItem('ew_customer', name);
+  localStorage.removeItem('ew_org');
   updateURL();
   loadAllBuckets();
 }
@@ -1093,6 +1070,7 @@ function clearCustomer() {
 function selectOrg(name) {
   selectedOrg = name;
   selectedCustomer = null;
+  localStorage.removeItem('ew_customer');
   issueCache = {};
   document.getElementById('org-search').value = '';
   document.getElementById('org-dropdown-list').classList.remove('open');
@@ -1351,7 +1329,7 @@ async function initApp() {
   // Load both lists in parallel
   await Promise.all([loadCustomers(), loadOrgs()]);
   applyLang();
-  // setupSearch() handles restoring customer from sessionStorage/localStorage
+  restoreFromState();
 }
 
 async function init() {
@@ -1457,19 +1435,51 @@ function updateURL() {
   window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
 }
 
-function restoreFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  const customer = params.get('customer');
-  const tab = params.get('tab');
-  if (customer && allCustomers.includes(customer)) {
-    selectCustomer(customer);
+
+
+function restoreFromState() {
+  const urlCustomer = sessionStorage.getItem('ew_pending_customer');
+  const urlOrg      = sessionStorage.getItem('ew_pending_org');
+  const urlTab      = sessionStorage.getItem('ew_pending_tab');
+  sessionStorage.removeItem('ew_pending_customer');
+  sessionStorage.removeItem('ew_pending_org');
+  sessionStorage.removeItem('ew_pending_tab');
+
+  const savedCustomer = urlCustomer || localStorage.getItem('ew_customer');
+  const savedOrg      = urlOrg      || localStorage.getItem('ew_org');
+  const savedTab      = urlTab      || localStorage.getItem('ew_tab');
+
+  console.log('[CSM] restoreFromState:', { savedCustomer, savedOrg, savedTab, orgsLen: allOrgs.length, customersLen: allCustomers.length });
+
+  function findMatch(value, list) {
+    if (!value) return null;
+    const exact = list.find(x => x === value);
+    if (exact) return exact;
+    const lower = value.toLowerCase();
+    return list.find(x => x.toLowerCase().includes(lower)) || null;
+  }
+
+  function restoreTab(tab) {
     if (tab) {
-      // Switch to the right tab after buckets load
-      setTimeout(() => {
-        const btn = document.getElementById(`tab-${tab}`);
-        if (btn) btn.click();
-      }, 500);
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const tabEl = document.getElementById('tab-' + tab);
+      if (tabEl) tabEl.classList.add('active');
     }
+  }
+
+  const matchedOrg      = findMatch(savedOrg, allOrgs);
+  const matchedCustomer = findMatch(savedCustomer, allCustomers);
+
+  console.log('[CSM] matched:', { matchedOrg, matchedCustomer });
+
+  // If both are set, customer wins — user explicitly navigated to a customer
+  if (matchedCustomer) {
+    restoreTab(savedTab);
+    selectCustomer(matchedCustomer);
+  } else if (matchedOrg) {
+    restoreTab(savedTab);
+    selectOrg(matchedOrg);
   }
 }
 
@@ -1495,6 +1505,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.1558</div>
+<div id="version-tag">v1.0602.1622</div>
 </body>
 </html>
