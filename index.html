@@ -23,6 +23,35 @@
     --info: #3b82f6;
   }
 
+  [data-theme="light"] {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface2: #eef0f8;
+    --border: #d5d9ee;
+    --accent: #4f6ef7;
+    --accent2: #7c3aed;
+    --text: #1a1d2e;
+    --muted: #5a6072;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+  }
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: border-color 0.2s;
+    margin-right: 8px;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -650,6 +679,7 @@ function selectCustomer(name) {
   document.getElementById('stats-row').style.display = 'grid';
   document.getElementById('bucket-tabs').style.display = 'flex';
   localStorage.setItem('ew_customer', name);
+  updateURL();
   loadAllBuckets();
 }
 
@@ -663,6 +693,7 @@ function clearCustomer() {
   document.getElementById('bucket-tabs').style.display = 'none';
   document.getElementById('issues-panel').innerHTML = '';
   document.getElementById('customer-search').value = '';
+  window.history.replaceState({}, '', window.location.pathname);
 }
 
 // ── JQL builders ─────────────────────────────────────────────────────────────
@@ -723,6 +754,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
   localStorage.setItem('ew_tab', tab);
+  updateURL();
   renderTab(tab);
 }
 
@@ -840,6 +872,7 @@ async function initApp() {
   document.getElementById('auth-btn').onclick = logout;
   document.getElementById('auth-btn').className = 'secondary';
   await loadCustomers();
+  restoreFromURL();
 }
 
 async function init() {
@@ -862,7 +895,51 @@ async function init() {
   showAuthScreen();
 }
 
+// ── URL state ─────────────────────────────────────────────────────────────────
+function updateURL() {
+  const params = new URLSearchParams();
+  if (selectedCustomer) params.set('customer', selectedCustomer);
+  if (currentTab && currentTab !== 'support') params.set('tab', currentTab);
+  const qs = params.toString();
+  window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
+}
+
+function restoreFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const customer = params.get('customer');
+  const tab = params.get('tab');
+  if (customer && allCustomers.includes(customer)) {
+    selectCustomer(customer);
+    if (tab) {
+      // Switch to the right tab after buckets load
+      setTimeout(() => {
+        const btn = document.getElementById(`tab-${tab}`);
+        if (btn) btn.click();
+      }, 500);
+    }
+  }
+}
+
 init();
+
+// ── Theme toggle ───────────────────────────────────────────────────────────
+(function() {
+  const btn = document.getElementById('theme-toggle');
+  const saved = localStorage.getItem('ew_theme') || 'dark';
+  applyTheme(saved);
+
+  btn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem('ew_theme', next);
+  });
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+})();
 </script>
 </body>
 </html>
