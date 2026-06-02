@@ -967,18 +967,42 @@ function copyTable(btn, tab) {
     ];
   });
 
-  const TAB = String.fromCharCode(9);
-  const NL  = String.fromCharCode(10);
-  const tsv = [headers].concat(rows).map(function(r) { return r.join(TAB); }).join(NL);
+  // Build HTML table for PowerPoint/Word/Excel paste
+  var htmlTable = '<table><thead><tr>' +
+    headers.map(function(h) { return '<th>' + h + '</th>'; }).join('') +
+    '</tr></thead><tbody>' +
+    rows.map(function(r) {
+      return '<tr>' + r.map(function(c) {
+        return '<td>' + String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</td>';
+      }).join('') + '</tr>';
+    }).join('') +
+    '</tbody></table>';
 
-  navigator.clipboard.writeText(tsv).then(function() {
+  // Write both HTML and plain text to clipboard
+  // HTML paste lands as a proper table in PowerPoint, Word, Excel
+  var TAB = String.fromCharCode(9);
+  var NL  = String.fromCharCode(10);
+  var tsv = [headers].concat(rows).map(function(r) { return r.join(TAB); }).join(NL);
+
+  var success = function() {
     btn.classList.add('copied');
     btn.textContent = 'Copied!';
     setTimeout(function() {
       btn.classList.remove('copied');
       btn.textContent = 'Copy';
     }, 2000);
-  });
+  };
+
+  try {
+    var item = new ClipboardItem({
+      'text/html':  new Blob([htmlTable], { type: 'text/html' }),
+      'text/plain': new Blob([tsv],       { type: 'text/plain' }),
+    });
+    navigator.clipboard.write([item]).then(success);
+  } catch(e) {
+    // Fallback for browsers that don't support ClipboardItem
+    navigator.clipboard.writeText(tsv).then(success);
+  }
 }
 
 // ── URL state ─────────────────────────────────────────────────────────────────
