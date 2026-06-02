@@ -1035,14 +1035,18 @@ function renderDropdown(customers) {
 
 function selectCustomer(name) {
   selectedCustomer = name;
+  selectedOrg = null;
+  localStorage.removeItem('ew_org');
   issueCache = {};
   document.getElementById('customer-search').value = '';
+  document.getElementById('org-search').value = '';
   document.getElementById('customer-dropdown-list').classList.remove('open');
   document.getElementById('badge-name').textContent = name;
   document.getElementById('customer-badge').classList.add('visible');
   document.getElementById('stats-row').style.display = 'grid';
   document.getElementById('bucket-tabs').style.display = 'flex';
   localStorage.setItem('ew_customer', name);
+  localStorage.removeItem('ew_org');
   updateURL();
   loadAllBuckets();
 }
@@ -1066,6 +1070,7 @@ function clearCustomer() {
 function selectOrg(name) {
   selectedOrg = name;
   selectedCustomer = null;
+  localStorage.removeItem('ew_customer');
   issueCache = {};
   document.getElementById('org-search').value = '';
   document.getElementById('org-dropdown-list').classList.remove('open');
@@ -1468,12 +1473,13 @@ function restoreFromState() {
 
   console.log('[CSM] matched:', { matchedOrg, matchedCustomer });
 
-  if (matchedOrg) {
-    restoreTab(savedTab);
-    selectOrg(matchedOrg);
-  } else if (matchedCustomer) {
+  // If both are set, customer wins — user explicitly navigated to a customer
+  if (matchedCustomer) {
     restoreTab(savedTab);
     selectCustomer(matchedCustomer);
+  } else if (matchedOrg) {
+    restoreTab(savedTab);
+    selectOrg(matchedOrg);
   }
 }
 
@@ -1499,6 +1505,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.1617</div>
+<div id="version-tag">v1.0602.1622</div>
 </body>
 </html>
