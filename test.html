@@ -1794,9 +1794,11 @@ function updateURL() {
 
 
 // ── Preset bucket splitting ──────────────────────────────────────────────────
-function splitPresetIntoBuckets(issues) {
+function splitPresetIntoBuckets(issues, presetKey) {
   // Buckets are NOT mutually exclusive — a ticket can appear in multiple buckets.
   // e.g. an aged support ticket appears in both Support AND Aging.
+  var agingDays = (presetKey === 'aging-90') ? 90 : 30;
+
   var open = issues.filter(i => i.fields.status && i.fields.status.statusCategory && i.fields.status.statusCategory.key !== 'done');
   var done = issues.filter(i => i.fields.status && i.fields.status.statusCategory && i.fields.status.statusCategory.key === 'done');
 
@@ -1806,7 +1808,7 @@ function splitPresetIntoBuckets(issues) {
   var ops      = open.filter(i => i.fields.project && OPS_PROJECTS.includes(i.fields.project.key));
   var aging    = open.filter(i => {
     var upd = i.fields.updated || i.fields.created;
-    return upd && (Date.now() - new Date(upd).getTime()) > 30 * 86400000;
+    return upd && (Date.now() - new Date(upd).getTime()) > agingDays * 86400000;
   });
   var resolved = done.filter(i => {
     var d = i.fields.resolutiondate || i.fields.updated;
@@ -1839,8 +1841,8 @@ function getPresetQueries() {
     't1-icp':    'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 1" AND cf[13874] = "Yes" AND statusCategory != Done ORDER BY priority ASC, created ASC',
     't1-nonicp': 'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 1" AND cf[13874] = "No" AND statusCategory != Done ORDER BY priority ASC, created ASC',
     't2-all':    'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 2" AND statusCategory != Done ORDER BY priority ASC, created ASC',
-    'aging-all': 'project in ' + jqlProjects([...SUPPORT_PROJECTS, ...OPS_PROJECTS]) + ' AND statusCategory != Done AND updated <= "-30d" ORDER BY updated ASC',
-    'aging-90':  'project in ' + jqlProjects([...SUPPORT_PROJECTS, ...OPS_PROJECTS]) + ' AND statusCategory != Done AND updated <= "-90d" ORDER BY updated ASC',
+    'aging-all': 'project in ' + jqlProjects(ALL_PROJECTS) + ' AND statusCategory != Done ORDER BY updated ASC',
+    'aging-90':  'project in ' + jqlProjects(ALL_PROJECTS) + ' AND statusCategory != Done ORDER BY updated ASC',
   };
 }
 
@@ -2039,6 +2041,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.2351</div>
+<div id="version-tag">v1.0602.2354</div>
 </body>
 </html>
