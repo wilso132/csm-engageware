@@ -518,7 +518,10 @@ async function jiraFetch(path, params = {}) {
   if (path === '/rest/api/3/issue/search') {
     const r = await fetch(WORKER_URL + '/jira/search', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
       body: JSON.stringify(params),
     });
     if (!r.ok) {
