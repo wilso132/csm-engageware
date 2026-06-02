@@ -351,14 +351,14 @@
   /* ── Version footer ── */
   #version-tag {
     position: fixed;
-    bottom: 8px;
-    right: 12px;
+    bottom: 6px;
+    right: 10px;
     font-size: 10px;
     color: var(--muted);
-    opacity: 0.5;
+    opacity: 0.4;
     font-family: 'IBM Plex Mono', monospace;
     pointer-events: none;
-    z-index: 999;
+    z-index: 1;
   }
 
   /* ── Loading / empty ── */
@@ -394,7 +394,6 @@
 </head>
 <body>
 
-<div id="version-tag">v1.0602.0151</div>
 <header>
   <div class="logo">engageware<span>/</span>csm</div>
   <div id="header-right">
@@ -1066,5 +1065,6 @@ init();
   }
 })();
 </script>
+<div id="version-tag">v1.0602.0157</div>
 </body>
 </html>
