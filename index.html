@@ -514,12 +514,9 @@ async function handleCallback() {
 // ── API ───────────────────────────────────────────────────────────────────────
 async function jiraFetch(path, params = {}) {
   // Route all Jira calls through the Cloudflare Worker proxy
-  // which uses a stored API token — no CORS, no OAuth scope issues
-  const url = new URL(WORKER_JIRA);
-  url.searchParams.set('path', path);
-  if (Object.keys(params).length) {
-    url.searchParams.set('params', JSON.stringify(params));
-  }
+  // Worker URL pattern: /jira/rest/api/3/... with query params forwarded directly
+  const url = new URL(WORKER_URL + '/jira' + path);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
   const r = await fetch(url.toString());
   if (!r.ok) {
