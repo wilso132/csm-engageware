@@ -166,6 +166,29 @@
   }
   .preset-btn.loading .preset-spinner { display: inline-block; }
 
+  /* ── OR divider row ── */
+  .or-divider-row {
+    display: flex;
+    align-items: center;
+    margin: 1.25rem 0 1rem;
+  }
+  .or-divider-row::before,
+  .or-divider-row::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .or-divider-text {
+    padding: 0 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
   /* ── Divider ── */
   .section-divider {
     border: none;
@@ -638,8 +661,9 @@
     </div>
 
     <!-- Customer / Org search -->
-    <hr class="section-divider">
-    <div class="search-section-label" data-i18n="search_by">Search by Customer or Organization</div>
+    <div class="or-divider-row">
+      <span class="or-divider-text">or search by</span>
+    </div>
     <!-- Customer picker -->
     <div id="picker-row">
       <div class="search-box-wrap">
@@ -945,6 +969,7 @@ const CUSTOMER_FIELD = 'cf[10100]';
 const SUPPORT_PROJECTS     = ['ASC','SCS','ACSC','TCST','AIC','AMXE'];
 const ENGINEERING_PROJECTS = ['AVS','AS','CORE','FLASH','GN','INTS','LIV','OUTB','PLT','SPID','UN','SEC','LEAR','PRD','ODSGI','IT','IC','ET','FR','LB'];
 const OPS_PROJECTS         = ['OPS'];
+const FR_PROJECTS          = ['FR','PRD'];
 const ALL_PROJECTS         = [...SUPPORT_PROJECTS, ...ENGINEERING_PROJECTS, ...OPS_PROJECTS];
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -1770,11 +1795,15 @@ function updateURL() {
 
 // ── Preset bucket splitting ──────────────────────────────────────────────────
 function splitPresetIntoBuckets(issues) {
-  var open     = issues.filter(i => i.fields.status && i.fields.status.statusCategory && i.fields.status.statusCategory.key !== 'done');
-  var done     = issues.filter(i => i.fields.status && i.fields.status.statusCategory && i.fields.status.statusCategory.key === 'done');
-  var support  = open.filter(i => i.fields.project && ['ASC','SCS','ACSC','TCST','AIC','AMXE'].includes(i.fields.project.key));
+  // Buckets are NOT mutually exclusive — a ticket can appear in multiple buckets.
+  // e.g. an aged support ticket appears in both Support AND Aging.
+  var open = issues.filter(i => i.fields.status && i.fields.status.statusCategory && i.fields.status.statusCategory.key !== 'done');
+  var done = issues.filter(i => i.fields.status && i.fields.status.statusCategory && i.fields.status.statusCategory.key === 'done');
+
+  // Each bucket filters independently from the full issue set
+  var support  = open.filter(i => i.fields.project && SUPPORT_PROJECTS.includes(i.fields.project.key));
   var eng      = open.filter(i => i.fields.project && ENGINEERING_PROJECTS.includes(i.fields.project.key));
-  var ops      = open.filter(i => i.fields.project && ['OPS'].includes(i.fields.project.key));
+  var ops      = open.filter(i => i.fields.project && OPS_PROJECTS.includes(i.fields.project.key));
   var aging    = open.filter(i => {
     var upd = i.fields.updated || i.fields.created;
     return upd && (Date.now() - new Date(upd).getTime()) > 30 * 86400000;
@@ -1783,13 +1812,15 @@ function splitPresetIntoBuckets(issues) {
     var d = i.fields.resolutiondate || i.fields.updated;
     return d && (Date.now() - new Date(d).getTime()) <= 365 * 86400000;
   });
-  var fr = issues.filter(i => i.fields.project && ['FR','PRD'].includes(i.fields.project.key));
+  var fr = issues.filter(i => i.fields.project && FR_PROJECTS.includes(i.fields.project.key));
+
   issueCache['support']     = support;
   issueCache['engineering'] = eng;
   issueCache['ops']         = ops;
   issueCache['aging']       = aging;
   issueCache['resolved']    = resolved;
   issueCache['fr']          = fr;
+
   updateCount('support',     support.length);
   updateCount('engineering', eng.length);
   updateCount('ops',         ops.length);
@@ -2008,6 +2039,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.2347</div>
+<div id="version-tag">v1.0602.2351</div>
 </body>
 </html>
