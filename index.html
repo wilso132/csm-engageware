@@ -407,11 +407,9 @@
 // ── Config ────────────────────────────────────────────────────────────────────
 const CLIENT_ID    = 'LmckYe4wFOygrvm4VEKmj0D6MTTP6Gjx';
 const REDIRECT_URI = 'https://wilso132.github.io/csm-engageware/';
-const JIRA_BASE_OAUTH = 'https://api.atlassian.com/ex/jira/884f99a4-d05f-496a-8a4c-ff1e2c2d2bc9';
-const JIRA_BASE_BASIC = 'https://engageware.atlassian.net';
-function getJiraBase() {
-  return (accessToken && accessToken.startsWith('Basic ')) ? JIRA_BASE_BASIC : JIRA_BASE_OAUTH;
-}
+const WORKER_URL   = 'https://csm-token-exchange.mwilson-7a1.workers.dev/';
+const JIRA_BASE    = 'https://api.atlassian.com/ex/jira/884f99a4-d05f-496a-8a4c-ff1e2c2d2bc9';
+function getJiraBase() { return JIRA_BASE; }
 const CUSTOMER_FIELD = 'cf[10100]';
 
 const SUPPORT_PROJECTS     = ['ASC','SCS','ACSC','TCST','AIC','AMXE'];
@@ -455,56 +453,39 @@ async function handleCallback() {
   const state  = params.get('state');
   if (!code) return false;
 
-  // Clear URL
+  // Clear URL immediately so the code isn't reused
   window.history.replaceState({}, '', window.location.pathname);
 
-  // Exchange code for token via Atlassian token endpoint
-  // NOTE: Requires a backend for client_secret. For public PKCE apps,
-  // we store the token directly after the implicit-style exchange.
-  // Since Atlassian's 3LO requires client_secret, we use the token
-  // returned via fragment or prompt the user to paste it.
-  // For now, use the access token from the URL fragment if present.
-  const fragment = new URLSearchParams(window.location.hash.slice(1));
-  const token    = fragment.get('access_token') || params.get('access_token');
-
-  if (token) {
-    accessToken = token;
-    localStorage.setItem('ew_access_token', token);
-    return true;
-  }
-
-  // Show manual token entry as fallback
-  showTokenEntry(code);
-  return false;
-}
-
-function showTokenEntry(code) {
+  // Show loading state
   document.getElementById('auth-screen').innerHTML = `
-    <h2>One more step</h2>
-    <p>Atlassian's OAuth requires a server to exchange the code for a token. 
-       Paste your Jira API token below instead — it's saved only on your device.</p>
-    <input id="manual-token" type="password" placeholder="Paste API token here..."
-      style="width:100%;max-width:420px;padding:10px 14px;border-radius:8px;
-             border:1px solid var(--border);background:var(--surface);
-             color:var(--text);font-size:14px;margin:12px 0;outline:none;" />
-    <button class="connect-btn" onclick="saveManualToken()">Save & Continue →</button>
-    <p style="margin-top:8px;font-size:12px;">
-      Get a token at 
-      <a href="https://id.atlassian.com/manage-profile/security/api-tokens" 
-         target="_blank" style="color:var(--accent);">id.atlassian.com</a>
-    </p>`;
-}
+    <h2>Connecting to Jira…</h2>
+    <p style="color:var(--muted)">Exchanging authorization code for access token.</p>
+    <div class="spinner" style="margin:1rem auto;display:block;"></div>`;
 
-function saveManualToken() {
-  const token = document.getElementById('manual-token').value.trim();
-  if (!token) return;
-  // Encode as Basic auth: email:token → base64
-  const email = prompt('Enter your Atlassian email:');
-  if (!email) return;
-  const encoded = btoa(`${email}:${token}`);
-  accessToken = 'Basic ' + encoded;
-  localStorage.setItem('ew_access_token', accessToken);
-  initApp();
+  try {
+    const r = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
+    });
+    const data = await r.json();
+    if (data.access_token) {
+      accessToken = data.access_token;
+      localStorage.setItem('ew_access_token', accessToken);
+      if (data.refresh_token) {
+        localStorage.setItem('ew_refresh_token', data.refresh_token);
+      }
+      return true;
+    } else {
+      throw new Error(data.error_description || 'No access token returned');
+    }
+  } catch(e) {
+    document.getElementById('auth-screen').innerHTML = `
+      <h2>Connection failed</h2>
+      <p style="color:var(--danger);margin-bottom:1rem;">${e.message}</p>
+      <button class="connect-btn" onclick="startAuth()">Try again →</button>`;
+    return false;
+  }
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -512,36 +493,19 @@ async function jiraFetch(path, params = {}) {
   const url = new URL(`${getJiraBase()}${path}`);
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
 
-  const isBasic = accessToken && accessToken.startsWith('Basic ');
-  const headers = {
-    'Accept': 'application/json',
-    'Authorization': isBasic ? accessToken : `Bearer ${accessToken}`,
-  };
-
-  const r = await fetch(url, { headers });
-  if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
-  if (r.status === 404) {
-    console.error('[CSM] 404 on:', url.toString());
-    throw new Error(`Not found: ${path}`);
-  }
-  if (!r.ok) throw new Error(`Jira API error ${r.status}: ${await r.text()}`);
-  return r.json();
-}
-
-async function getCloudId() {
-  // Fetch the accessible Atlassian resources for this OAuth token
-  // to confirm the cloud ID and that the site is authorized
-  const r = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
+  const r = await fetch(url, {
     headers: {
       'Accept': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
     }
   });
-  if (!r.ok) throw new Error('Could not fetch accessible resources');
-  const sites = await r.json();
-  console.log('[CSM] Accessible sites:', sites.map(s => s.name + ' (' + s.id + ')'));
-  return sites;
+
+  if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
+  if (!r.ok) throw new Error(`Jira API error ${r.status}`);
+  return r.json();
 }
+
+
 
 async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate', maxResults = 100) {
   const data = await jiraFetch('/rest/api/3/issue/search', {
