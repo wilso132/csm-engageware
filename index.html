@@ -536,7 +536,11 @@ async function jiraFetch(path, params = {}) {
   });
 
   if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
-  if (!r.ok) throw new Error(`Jira API error ${r.status}`);
+  if (!r.ok) {
+    const txt = await r.text();
+    console.error('[CSM] API error', r.status, url.toString(), txt.slice(0,200));
+    throw new Error(`Jira API error ${r.status}`);
+  }
   return r.json();
 }
 
