@@ -859,6 +859,10 @@ function escHtml(s) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 function showAuthScreen() {
+  // Save any URL params (customer, tab) so we can restore after OAuth
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('customer')) sessionStorage.setItem('ew_pending_customer', p.get('customer'));
+  if (p.get('tab'))      sessionStorage.setItem('ew_pending_tab',      p.get('tab'));
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-btn').textContent = 'Connect to Jira';
@@ -872,15 +876,31 @@ async function initApp() {
   document.getElementById('auth-btn').onclick = logout;
   document.getElementById('auth-btn').className = 'secondary';
   await loadCustomers();
+  // Check for pending customer from shared URL (saved before OAuth)
+  const pendingCustomer = sessionStorage.getItem('ew_pending_customer');
+  const pendingTab = sessionStorage.getItem('ew_pending_tab');
+  if (pendingCustomer) {
+    sessionStorage.removeItem('ew_pending_customer');
+    sessionStorage.removeItem('ew_pending_tab');
+    if (allCustomers.includes(pendingCustomer)) {
+      selectCustomer(pendingCustomer);
+      if (pendingTab) {
+        setTimeout(() => {
+          const btn = document.getElementById(`tab-${pendingTab}`);
+          if (btn) btn.click();
+        }, 500);
+      }
+      return;
+    }
+  }
   restoreFromURL();
 }
 
 async function init() {
   // If already have a token, just init the app — don't process callback
   if (accessToken) {
-    window.history.replaceState({}, '', window.location.pathname);
-    // Re-resolve cloud ID in case it changed
-      await initApp();
+    // Don't wipe the URL — let initApp restore it
+    await initApp();
     return;
   }
 
