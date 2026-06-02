@@ -1021,34 +1021,7 @@ function setupSearch() {
   });
 
   // URL params (saved to sessionStorage before OAuth) take priority over localStorage
-  const urlCustomer = sessionStorage.getItem('ew_pending_customer');
-  const urlOrg      = sessionStorage.getItem('ew_pending_org');
-  const urlTab      = sessionStorage.getItem('ew_pending_tab');
-  sessionStorage.removeItem('ew_pending_customer');
-  sessionStorage.removeItem('ew_pending_org');
-  sessionStorage.removeItem('ew_pending_tab');
-
-  const savedCustomer = urlCustomer || localStorage.getItem('ew_customer');
-  const savedOrg      = urlOrg      || localStorage.getItem('ew_org');
-  const savedTab      = urlTab      || localStorage.getItem('ew_tab');
-
-  const restoreTab = (tab) => {
-    if (tab) {
-      currentTab = tab;
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      const tabEl = document.getElementById(`tab-${tab}`);
-      if (tabEl) tabEl.classList.add('active');
-    }
-  };
-
-  // Org takes priority if both are set (org-based search is more specific)
-  if (savedOrg && allOrgs.includes(savedOrg)) {
-    restoreTab(savedTab);
-    selectOrg(savedOrg);
-  } else if (savedCustomer && allCustomers.includes(savedCustomer)) {
-    restoreTab(savedTab);
-    selectCustomer(savedCustomer);
-  }
+  // Restore is handled after both loadCustomers + loadOrgs complete (see initApp)
 }
 
 function renderDropdown(customers) {
@@ -1351,7 +1324,7 @@ async function initApp() {
   // Load both lists in parallel
   await Promise.all([loadCustomers(), loadOrgs()]);
   applyLang();
-  // setupSearch() handles restoring customer from sessionStorage/localStorage
+  restoreFromState();
 }
 
 async function init() {
@@ -1495,6 +1468,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.1558</div>
+<div id="version-tag">v1.0602.1606</div>
 </body>
 </html>
