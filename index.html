@@ -394,7 +394,7 @@
 </head>
 <body>
 
-<div id="version-tag">v1.0602.0150</div>
+<div id="version-tag">v1.0602.0151</div>
 <header>
   <div class="logo">engageware<span>/</span>csm</div>
   <div id="header-right">
@@ -472,8 +472,18 @@
 // ── Preserve URL params before OAuth redirect wipes them ─────────────────────
 (function() {
   var p = new URLSearchParams(window.location.search);
-  if (p.get('customer')) sessionStorage.setItem('ew_pending_customer', p.get('customer'));
-  if (p.get('tab'))      sessionStorage.setItem('ew_pending_tab',      p.get('tab'));
+  // Always overwrite — if URL has customer param use it, otherwise clear pending state
+  // This ensures a fresh URL always wins over stale sessionStorage
+  if (p.get('customer')) {
+    sessionStorage.setItem('ew_pending_customer', p.get('customer'));
+    if (p.get('tab')) sessionStorage.setItem('ew_pending_tab', p.get('tab'));
+    else              sessionStorage.removeItem('ew_pending_tab');
+  } else if (!p.get('code')) {
+    // Not an OAuth callback and no customer param — clear any stale pending state
+    sessionStorage.removeItem('ew_pending_customer');
+    sessionStorage.removeItem('ew_pending_tab');
+  }
+  // If it's an OAuth callback (?code=...), leave pending state alone — it was set on prior page load
 })();
 
 // ── Config ────────────────────────────────────────────────────────────────────
