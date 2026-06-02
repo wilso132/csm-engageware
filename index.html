@@ -394,7 +394,7 @@
 </head>
 <body>
 
-<div id="version-tag">v1.0602.0148</div>
+<div id="version-tag">v1.0602.0150</div>
 <header>
   <div class="logo">engageware<span>/</span>csm</div>
   <div id="header-right">
@@ -914,10 +914,7 @@ function escHtml(s) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 function showAuthScreen() {
-  // Save any URL params (customer, tab) so we can restore after OAuth
-  const p = new URLSearchParams(window.location.search);
-  if (p.get('customer')) sessionStorage.setItem('ew_pending_customer', p.get('customer'));
-  if (p.get('tab'))      sessionStorage.setItem('ew_pending_tab',      p.get('tab'));
+  // URL params already saved to sessionStorage at page load
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-btn').textContent = 'Connect to Jira';
@@ -931,24 +928,7 @@ async function initApp() {
   document.getElementById('auth-btn').onclick = logout;
   document.getElementById('auth-btn').className = 'secondary';
   await loadCustomers();
-  // Check for pending customer from shared URL (saved before OAuth)
-  const pendingCustomer = sessionStorage.getItem('ew_pending_customer');
-  const pendingTab = sessionStorage.getItem('ew_pending_tab');
-  if (pendingCustomer) {
-    sessionStorage.removeItem('ew_pending_customer');
-    sessionStorage.removeItem('ew_pending_tab');
-    if (allCustomers.includes(pendingCustomer)) {
-      selectCustomer(pendingCustomer);
-      if (pendingTab) {
-        setTimeout(() => {
-          const btn = document.getElementById(`tab-${pendingTab}`);
-          if (btn) btn.click();
-        }, 500);
-      }
-      return;
-    }
-  }
-  restoreFromURL();
+  // setupSearch() handles restoring customer from sessionStorage/localStorage
 }
 
 async function init() {
