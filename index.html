@@ -128,11 +128,26 @@
   /* ── Customer picker ── */
   #picker-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     margin-bottom: 2rem;
+    flex-wrap: wrap;
   }
-  #customer-search {
+  .search-box-wrap {
+    flex: 1;
+    min-width: 200px;
+    position: relative;
+  }
+  .search-box-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 5px;
+  }
+
+  #customer-search, #org-search {
     flex: 1;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -144,13 +159,13 @@
     outline: none;
     transition: border-color 0.15s;
   }
-  #customer-search:focus { border-color: var(--accent); }
-  #customer-search::placeholder { color: var(--muted); }
+  #customer-search:focus, #org-search:focus { border-color: var(--accent); }
+  #customer-search::placeholder, #org-search::placeholder { color: var(--muted); }
 
   #customer-dropdown {
     position: relative;
   }
-  #dropdown-list {
+  .dropdown-list {
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
@@ -163,7 +178,7 @@
     z-index: 200;
     display: none;
   }
-  #dropdown-list.open { display: block; }
+  .dropdown-list.open { display: block; }
   .dropdown-item {
     padding: 9px 14px;
     font-size: 13px;
@@ -452,6 +467,7 @@
   <div class="logo">engageware<span>/</span>csm</div>
   <div id="header-right">
     <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode">🌙</button>
+    <button class="theme-toggle" id="lang-toggle" title="Toggle language">EN</button>
     <button id="auth-btn" onclick="startAuth()">Connect to Jira</button>
   </div>
 </header>
@@ -468,9 +484,19 @@
   <div id="app">
     <!-- Customer picker -->
     <div id="picker-row">
-      <div id="customer-dropdown" style="flex:1; position:relative;">
-        <input id="customer-search" type="text" placeholder="Loading customers..." autocomplete="off" disabled />
-        <div id="dropdown-list"></div>
+      <div class="search-box-wrap">
+        <div class="search-box-label" data-i18n="label_customer">Customer</div>
+        <div id="customer-dropdown" style="position:relative;">
+          <input id="customer-search" type="text" placeholder="Loading customers..." autocomplete="off" disabled />
+          <div id="customer-dropdown-list" class="dropdown-list"></div>
+        </div>
+      </div>
+      <div class="search-box-wrap">
+        <div class="search-box-label" data-i18n="label_organization">Organization</div>
+        <div id="org-dropdown" style="position:relative;">
+          <input id="org-search" type="text" placeholder="Loading organizations..." autocomplete="off" disabled />
+          <div id="org-dropdown-list" class="dropdown-list"></div>
+        </div>
       </div>
       <div id="customer-badge">
         <span id="badge-name"></span>
@@ -481,15 +507,15 @@
     <!-- Stats -->
     <div class="stats-row" id="stats-row" style="display:none;">
       <div class="stat-card">
-        <div class="stat-label">Open Support</div>
+        <div class="stat-label" data-i18n="open_support">Open Support</div>
         <div class="stat-value info" id="stat-support">—</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Open Engineering</div>
+        <div class="stat-label" data-i18n="open_engineering">Open Engineering</div>
         <div class="stat-value info" id="stat-eng">—</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Open OPS</div>
+        <div class="stat-label" data-i18n="open_ops">Open OPS</div>
         <div class="stat-value info" id="stat-ops">—</div>
       </div>
       <div class="stat-card">
@@ -501,7 +527,7 @@
         <div class="stat-value success" id="stat-resolved">—</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Feature Requests</div>
+        <div class="stat-label" data-i18n="feature_requests">Feature Requests</div>
         <div class="stat-value warning" id="stat-fr">—</div>
       </div>
     </div>
@@ -525,19 +551,188 @@
 // ── Preserve URL params before OAuth redirect wipes them ─────────────────────
 (function() {
   var p = new URLSearchParams(window.location.search);
-  // Always overwrite — if URL has customer param use it, otherwise clear pending state
-  // This ensures a fresh URL always wins over stale sessionStorage
-  if (p.get('customer')) {
-    sessionStorage.setItem('ew_pending_customer', p.get('customer'));
-    if (p.get('tab')) sessionStorage.setItem('ew_pending_tab', p.get('tab'));
-    else              sessionStorage.removeItem('ew_pending_tab');
+  if (p.get('customer') || p.get('org')) {
+    if (p.get('customer')) sessionStorage.setItem('ew_pending_customer', p.get('customer'));
+    else                   sessionStorage.removeItem('ew_pending_customer');
+    if (p.get('org'))      sessionStorage.setItem('ew_pending_org', p.get('org'));
+    else                   sessionStorage.removeItem('ew_pending_org');
+    if (p.get('tab'))      sessionStorage.setItem('ew_pending_tab', p.get('tab'));
+    else                   sessionStorage.removeItem('ew_pending_tab');
   } else if (!p.get('code')) {
-    // Not an OAuth callback and no customer param — clear any stale pending state
     sessionStorage.removeItem('ew_pending_customer');
+    sessionStorage.removeItem('ew_pending_org');
     sessionStorage.removeItem('ew_pending_tab');
   }
   // If it's an OAuth callback (?code=...), leave pending state alone — it was set on prior page load
 })();
+
+// ── Language (i18n) ────────────────────────────────────────────────────────
+const I18N = {
+  en: {
+    label_customer:       'Customer',
+    label_organization:   'Organization',
+    search_customers:     'Search customers...',
+    search_orgs:          'Search organizations...',
+    loading_customers:    'Loading customers...',
+    loading_orgs:         'Loading organizations...',
+    open_support:         'Open Support',
+    open_engineering:     'Open Engineering',
+    open_ops:             'Open OPS',
+    aging:                'Aging (14D+)',
+    resolved:             'Resolved (30D)',
+    feature_requests:     'Feature Requests',
+    tab_support:          'Support',
+    tab_engineering:      'Engineering',
+    tab_ops:              'OPS',
+    tab_aging:            'Aging',
+    tab_resolved:         'Resolved',
+    tab_fr:               'Feature Requests',
+    col_key:              'Key',
+    col_summary:          'Summary',
+    col_status:           'Status',
+    col_priority:         'Priority',
+    col_assignee:         'Assignee',
+    col_updated:          'Updated',
+    col_resolved:         'Resolved',
+    last_comment:         'Last Comment',
+    no_issues:            'No issues found.',
+    loading:              'Loading…',
+    sign_out:             'Sign out',
+    connect:              'Connect to Jira',
+    copy:                 'Copy',
+    copied:               'Copied!',
+    no_comments:          'No comments',
+    issues_suffix:        'issues',
+    issue_suffix:         'issue',
+    title_open:           '– Open Tickets',
+    title_aging:          '– Aging Tickets',
+    title_resolved:       '– Resolved (30d)',
+    title_fr:             '– Feature Requests',
+  },
+  es: {
+    label_customer:       'Cliente',
+    label_organization:   'Organización',
+    search_customers:     'Buscar clientes...',
+    search_orgs:          'Buscar organizaciones...',
+    loading_customers:    'Cargando clientes...',
+    loading_orgs:         'Cargando organizaciones...',
+    open_support:         'Soporte Abierto',
+    open_engineering:     'Ingeniería Abierta',
+    open_ops:             'OPS Abierto',
+    aging:                'Sin actividad (14D+)',
+    resolved:             'Resueltos (30D)',
+    feature_requests:     'Solicitudes de Función',
+    tab_support:          'Soporte',
+    tab_engineering:      'Ingeniería',
+    tab_ops:              'OPS',
+    tab_aging:            'Sin actividad',
+    tab_resolved:         'Resueltos',
+    tab_fr:               'Solicitudes de Función',
+    col_key:              'Clave',
+    col_summary:          'Resumen',
+    col_status:           'Estado',
+    col_priority:         'Prioridad',
+    col_assignee:         'Asignado',
+    col_updated:          'Actualizado',
+    col_resolved:         'Resuelto',
+    last_comment:         'Último Comentario',
+    no_issues:            'No se encontraron tickets.',
+    loading:              'Cargando…',
+    sign_out:             'Cerrar sesión',
+    connect:              'Conectar a Jira',
+    copy:                 'Copiar',
+    copied:               '¡Copiado!',
+    no_comments:          'Sin comentarios',
+    issues_suffix:        'tickets',
+    issue_suffix:         'ticket',
+    title_open:           '– Tickets Abiertos',
+    title_aging:          '– Sin Actividad',
+    title_resolved:       '– Resueltos (30d)',
+    title_fr:             '– Solicitudes de Función',
+  },
+};
+
+let lang = localStorage.getItem('ew_lang') || 'en';
+
+function t(key) {
+  return (I18N[lang] && I18N[lang][key]) || I18N['en'][key] || key;
+}
+
+function applyLang() {
+  // Static data-i18n elements
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+
+  // Stat card labels
+  const statLabels = [
+    ['stat-support',  'open_support'],
+    ['stat-eng',      'open_engineering'],
+    ['stat-ops',      'open_ops'],
+    ['stat-aging',    'aging'],
+    ['stat-resolved', 'resolved'],
+    ['stat-fr',       'feature_requests'],
+  ];
+  statLabels.forEach(([id, key]) => {
+    const el = document.querySelector(`#${id}`)?.closest('.stat-card')?.querySelector('.stat-label');
+    if (el) el.textContent = t(key);
+  });
+
+  // Tab buttons
+  const tabs = [
+    ['tab-support',     'tab_support'],
+    ['tab-engineering', 'tab_engineering'],
+    ['tab-ops',         'tab_ops'],
+    ['tab-aging',       'tab_aging'],
+    ['tab-resolved',    'tab_resolved'],
+    ['tab-fr',          'tab_fr'],
+  ];
+  tabs.forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (el) {
+      // Preserve the count badge
+      const badge = el.querySelector('.tab-count');
+      const count = badge ? badge.textContent : '';
+      el.textContent = t(key);
+      if (count) {
+        const span = document.createElement('span');
+        span.className = 'tab-count';
+        span.textContent = count;
+        el.appendChild(span);
+      }
+    }
+  });
+
+  // Search placeholders
+  const cs = document.getElementById('customer-search');
+  if (cs) cs.placeholder = cs.disabled ? t('loading_customers') : t('search_customers');
+  const os = document.getElementById('org-search');
+  if (os) os.placeholder = os.disabled ? t('loading_orgs') : t('search_orgs');
+
+  // Auth button
+  const ab = document.getElementById('auth-btn');
+  if (ab && ab.textContent !== t('sign_out')) ab.textContent = t('connect');
+  else if (ab) ab.textContent = t('sign_out');
+
+  // Lang toggle button label
+  document.getElementById('lang-toggle').textContent = lang.toUpperCase();
+
+  // Re-render current tab if loaded
+  if (currentTab && issueCache[currentTab]) renderTab(currentTab);
+}
+
+// ── Lang toggle init ──────────────────────────────────────────────────────
+(function() {
+  const btn = document.getElementById('lang-toggle');
+  btn.textContent = lang.toUpperCase();
+  btn.addEventListener('click', () => {
+    lang = lang === 'en' ? 'es' : 'en';
+    localStorage.setItem('ew_lang', lang);
+    applyLang();
+  });
+})();
+
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const CLIENT_ID    = 'LmckYe4wFOygrvm4VEKmj0D6MTTP6Gjx';
@@ -563,6 +758,8 @@ let accessToken    = localStorage.getItem('ew_access_token');
 let allCustomers   = [];
 let selectedCustomer = null;
 let showComments = localStorage.getItem('ew_comments') === 'true';
+let allOrgs = [];
+let selectedOrg = null; // separate from selectedCustomer
 let currentTab     = 'support';
 let issueCache     = {};
 
@@ -699,28 +896,73 @@ async function searchIssues(jql, fields = 'summary,status,priority,issuetype,ass
 }
 
 // ── Customer list ─────────────────────────────────────────────────────────────
-async function loadCustomers() {
-  // Use field context options API — no JQL, no issue search, just the field definition
-  try {
-    const ctxData = await jiraFetch('/rest/api/3/field/customfield_10100/context', { maxResults: 50 });
-    const contexts = ctxData.values || [];
-    for (const ctx of contexts) {
-      let startAt = 0;
+async function loadOrgs() {
+  // Check cache first — orgs don't change often
+  const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+  const cached = localStorage.getItem('ew_cache_orgs');
+  const cachedAt = parseInt(localStorage.getItem('ew_cache_orgs_ts') || '0');
+  if (cached && Date.now() - cachedAt < CACHE_TTL) {
+    allOrgs = JSON.parse(cached);
+    console.log(`[CSM] Loaded ${allOrgs.length} orgs from cache`);
+  } else {
+    allOrgs = [];
+    try {
+      let start = 0;
       while (true) {
-        const opts = await jiraFetch(
-          `/rest/api/3/field/customfield_10100/context/${ctx.id}/option`,
-          { maxResults: 100, startAt }
-        );
-        const values = opts.values || [];
-        values.forEach(o => { if (o.value) allCustomers.push(o.value); });
-        if (opts.isLast || values.length === 0) break;
-        startAt += values.length;
+        const data = await jiraFetch('/rest/servicedeskapi/organization', { limit: 50, start });
+        const values = data.values || [];
+        values.forEach(o => { if (o.name) allOrgs.push(o.name); });
+        if (data.isLastPage || values.length === 0) break;
+        start += values.length;
       }
+      allOrgs = [...new Set(allOrgs)].sort();
+      localStorage.setItem('ew_cache_orgs', JSON.stringify(allOrgs));
+      localStorage.setItem('ew_cache_orgs_ts', String(Date.now()));
+      console.log(`[CSM] Loaded ${allOrgs.length} orgs from API`);
+    } catch(e) {
+      console.error('[CSM] Failed to load orgs:', e);
     }
-    allCustomers = [...new Set(allCustomers)].sort();
-    console.log(`[CSM] Loaded ${allCustomers.length} customers from field options`);
-  } catch(e) {
-    console.error('[CSM] Failed to load customers:', e);
+  }
+  // Enable org search input
+  const orgInput = document.getElementById('org-search');
+  if (orgInput) {
+    orgInput.disabled = false;
+    orgInput.placeholder = t('search_orgs');
+  }
+}
+
+async function loadCustomers() {
+  // Check cache first — customer field options don't change often
+  const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+  const cached = localStorage.getItem('ew_cache_customers');
+  const cachedAt = parseInt(localStorage.getItem('ew_cache_customers_ts') || '0');
+  if (cached && Date.now() - cachedAt < CACHE_TTL) {
+    allCustomers = JSON.parse(cached);
+    console.log(`[CSM] Loaded ${allCustomers.length} customers from cache`);
+  } else {
+    try {
+      const ctxData = await jiraFetch('/rest/api/3/field/customfield_10100/context', { maxResults: 50 });
+      const contexts = ctxData.values || [];
+      for (const ctx of contexts) {
+        let startAt = 0;
+        while (true) {
+          const opts = await jiraFetch(
+            `/rest/api/3/field/customfield_10100/context/${ctx.id}/option`,
+            { maxResults: 100, startAt }
+          );
+          const values = opts.values || [];
+          values.forEach(o => { if (o.value) allCustomers.push(o.value); });
+          if (opts.isLast || values.length === 0) break;
+          startAt += values.length;
+        }
+      }
+      allCustomers = [...new Set(allCustomers)].sort();
+      localStorage.setItem('ew_cache_customers', JSON.stringify(allCustomers));
+      localStorage.setItem('ew_cache_customers_ts', String(Date.now()));
+      console.log(`[CSM] Loaded ${allCustomers.length} customers from API`);
+    } catch(e) {
+      console.error('[CSM] Failed to load customers:', e);
+    }
   }
   setupSearch();
 }
@@ -728,7 +970,7 @@ async function loadCustomers() {
 // ── Search / dropdown ─────────────────────────────────────────────────────────
 function setupSearch() {
   const input = document.getElementById('customer-search');
-  const list  = document.getElementById('dropdown-list');
+  const list  = document.getElementById('customer-dropdown-list');
 
   // Enable the input now that customers are loaded
   input.disabled = false;
@@ -750,27 +992,67 @@ function setupSearch() {
       list.classList.remove('open');
   });
 
+  // ── Org search box ──────────────────────────────────────────────────────
+  const orgInput = document.getElementById('org-search');
+  const orgList  = document.getElementById('org-dropdown-list');
+
+  orgInput.addEventListener('input', () => {
+    const q = orgInput.value.toLowerCase().trim();
+    const matches = allOrgs.filter(o => o.toLowerCase().includes(q)).slice(0, 50);
+    orgList.innerHTML = matches.map(o =>
+      `<div class="dropdown-item" onclick="selectOrg('${o.replace(/'/g,"\'")}')">${escHtml(o)}</div>`
+    ).join('');
+    if (matches.length) orgList.classList.add('open');
+    else orgList.classList.remove('open');
+  });
+
+  orgInput.addEventListener('focus', () => {
+    const q = orgInput.value.toLowerCase().trim();
+    const matches = allOrgs.filter(o => o.toLowerCase().includes(q)).slice(0, 50);
+    orgList.innerHTML = matches.map(o =>
+      `<div class="dropdown-item" onclick="selectOrg('${o.replace(/'/g,"\'")}')">${escHtml(o)}</div>`
+    ).join('');
+    if (matches.length) orgList.classList.add('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (!document.getElementById('org-dropdown').contains(e.target))
+      orgList.classList.remove('open');
+  });
+
   // URL params (saved to sessionStorage before OAuth) take priority over localStorage
-  const urlCustomer   = sessionStorage.getItem('ew_pending_customer');
-  const urlTab        = sessionStorage.getItem('ew_pending_tab');
-  if (urlCustomer) { sessionStorage.removeItem('ew_pending_customer'); }
-  if (urlTab)      { sessionStorage.removeItem('ew_pending_tab'); }
+  const urlCustomer = sessionStorage.getItem('ew_pending_customer');
+  const urlOrg      = sessionStorage.getItem('ew_pending_org');
+  const urlTab      = sessionStorage.getItem('ew_pending_tab');
+  sessionStorage.removeItem('ew_pending_customer');
+  sessionStorage.removeItem('ew_pending_org');
+  sessionStorage.removeItem('ew_pending_tab');
+
   const savedCustomer = urlCustomer || localStorage.getItem('ew_customer');
+  const savedOrg      = urlOrg      || localStorage.getItem('ew_org');
   const savedTab      = urlTab      || localStorage.getItem('ew_tab');
-  if (savedCustomer && allCustomers.includes(savedCustomer)) {
-    currentTab = savedTab || 'support';
-    selectCustomer(savedCustomer);
-    // Make sure the right tab is highlighted
-    if (savedTab) {
+
+  const restoreTab = (tab) => {
+    if (tab) {
+      currentTab = tab;
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      const tabEl = document.getElementById(`tab-${savedTab}`);
+      const tabEl = document.getElementById(`tab-${tab}`);
       if (tabEl) tabEl.classList.add('active');
     }
+  };
+
+  // Org takes priority if both are set (org-based search is more specific)
+  if (savedOrg && allOrgs.includes(savedOrg)) {
+    restoreTab(savedTab);
+    selectOrg(savedOrg);
+  } else if (savedCustomer && allCustomers.includes(savedCustomer)) {
+    restoreTab(savedTab);
+    selectCustomer(savedCustomer);
   }
 }
 
 function renderDropdown(customers) {
-  const list = document.getElementById('dropdown-list');
+  const list = document.getElementById('customer-dropdown-list');
   list.innerHTML = customers.map(c =>
     `<div class="dropdown-item" onclick="selectCustomer('${c.replace(/'/g,"\\'")}')">
        ${c}
@@ -782,7 +1064,7 @@ function selectCustomer(name) {
   selectedCustomer = name;
   issueCache = {};
   document.getElementById('customer-search').value = '';
-  document.getElementById('dropdown-list').classList.remove('open');
+  document.getElementById('customer-dropdown-list').classList.remove('open');
   document.getElementById('badge-name').textContent = name;
   document.getElementById('customer-badge').classList.add('visible');
   document.getElementById('stats-row').style.display = 'grid';
@@ -794,15 +1076,35 @@ function selectCustomer(name) {
 
 function clearCustomer() {
   selectedCustomer = null;
+  selectedOrg = null;
   issueCache = {};
   localStorage.removeItem('ew_customer');
+  localStorage.removeItem('ew_org');
   localStorage.removeItem('ew_tab');
   document.getElementById('customer-badge').classList.remove('visible');
   document.getElementById('stats-row').style.display = 'none';
   document.getElementById('bucket-tabs').style.display = 'none';
   document.getElementById('issues-panel').innerHTML = '';
   document.getElementById('customer-search').value = '';
+  document.getElementById('org-search').value = '';
   window.history.replaceState({}, '', window.location.pathname);
+}
+
+function selectOrg(name) {
+  selectedOrg = name;
+  selectedCustomer = null;
+  issueCache = {};
+  document.getElementById('org-search').value = '';
+  document.getElementById('org-dropdown-list').classList.remove('open');
+  document.getElementById('customer-search').value = '';
+  document.getElementById('badge-name').textContent = name;
+  document.getElementById('customer-badge').classList.add('visible');
+  document.getElementById('stats-row').style.display = 'grid';
+  document.getElementById('bucket-tabs').style.display = 'flex';
+  localStorage.setItem('ew_org', name);
+  localStorage.removeItem('ew_customer');
+  updateURL();
+  loadAllBuckets();
 }
 
 // ── JQL builders ─────────────────────────────────────────────────────────────
@@ -814,18 +1116,27 @@ function customerJql(customer) {
   return `${CUSTOMER_FIELD} = "${customer}"`;
 }
 
+function orgJql(org) {
+  return `cf[11300] = "${org}"`;
+}
+
+function makeJql(c, extra) {
+  const filter = selectedOrg ? orgJql(selectedOrg) : customerJql(c);
+  return filter + (extra ? ' AND ' + extra : '');
+}
+
 const BUCKETS = {
-  support: c => `project in ${jqlProjects(SUPPORT_PROJECTS)} AND ${customerJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
-  engineering: c => `project in ${jqlProjects(ENGINEERING_PROJECTS)} AND ${customerJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
-  ops: c => `project in ${jqlProjects(OPS_PROJECTS)} AND ${customerJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
-  aging: c => `project in ${jqlProjects([...SUPPORT_PROJECTS,...OPS_PROJECTS])} AND ${customerJql(c)} AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC`,
-  resolved: c => `project in ${jqlProjects(ALL_PROJECTS)} AND ${customerJql(c)} AND statusCategory = Done AND resolved >= "-30d" ORDER BY resolutiondate DESC`,
-  fr: c => `project in ("FR","PRD") AND ${customerJql(c)} ORDER BY statusCategory ASC, priority ASC`,
+  support: c => `project in ${jqlProjects(SUPPORT_PROJECTS)} AND ${makeJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
+  engineering: c => `project in ${jqlProjects(ENGINEERING_PROJECTS)} AND ${makeJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
+  ops: c => `project in ${jqlProjects(OPS_PROJECTS)} AND ${makeJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
+  aging: c => `project in ${jqlProjects([...SUPPORT_PROJECTS,...OPS_PROJECTS])} AND ${makeJql(c)} AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC`,
+  resolved: c => `project in ${jqlProjects(ALL_PROJECTS)} AND ${makeJql(c)} AND statusCategory = Done AND resolved >= "-30d" ORDER BY resolutiondate DESC`,
+  fr: c => `project in ("FR","PRD") AND ${makeJql(c)} ORDER BY statusCategory ASC, priority ASC`,
 };
 
 // ── Load data ─────────────────────────────────────────────────────────────────
 async function loadAllBuckets() {
-  const c = selectedCustomer;
+  const c = selectedCustomer || selectedOrg;
   const keys = Object.keys(BUCKETS);
 
   // Reset stats
@@ -872,11 +1183,11 @@ function renderTab(tab) {
   const issues = issueCache[tab];
 
   if (!issues) {
-    panel.innerHTML = `<div class="table-container"><div class="loading"><div class="spinner"></div><br>Loading…</div></div>`;
+    panel.innerHTML = `<div class="table-container"><div class="loading"><div class="spinner"></div><br>${t('loading')}</div></div>`;
     return;
   }
   if (!issues.length) {
-    panel.innerHTML = `<div class="table-container"><div class="empty">No issues found.</div></div>`;
+    panel.innerHTML = `<div class="table-container"><div class="empty">${t('no_issues')}</div></div>`;
     return;
   }
 
@@ -894,9 +1205,9 @@ function renderTab(tab) {
       <div class="table-header">
         <span class="table-title">${TITLES[tab]}</span>
         <div style="display:flex;align-items:center;gap:12px;">
-          <span class="table-meta">${issues.length} issue${issues.length !== 1 ? 's' : ''}</span>
+          <span class="table-meta">${issues.length} ${issues.length !== 1 ? t('issues_suffix') : t('issue_suffix')}</span>
           <label class="comment-toggle-wrap" title="Show last comment for each ticket">
-            <span>Last Comment</span>
+            <span data-i18n="last_comment">Last Comment</span>
             <span class="toggle-switch">
               <input type="checkbox" id="comment-toggle" ${showComments ? 'checked' : ''}>
               <span class="toggle-track"></span>
@@ -980,7 +1291,7 @@ function renderRow(issue, tab) {
       const text    = raw.length > 300 ? raw.slice(0, 297) + '...' : raw;
       commentRow = `<tr class="comment-row"><td colspan="6"><div class="comment-meta">${escHtml(author)} &middot; ${escHtml(dateStr)}</div><div class="comment-body">${escHtml(text)}</div></td></tr>`;
     } else {
-      commentRow = `<tr class="comment-row"><td colspan="6"><span class="comment-none">No comments</span></td></tr>`;
+      commentRow = `<tr class="comment-row"><td colspan="6"><span class="comment-none">${t('no_comments')}</span></td></tr>`;
     }
   }
 
@@ -1034,10 +1345,12 @@ function showAuthScreen() {
 async function initApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('auth-btn').textContent = 'Sign out';
+  document.getElementById('auth-btn').textContent = t('sign_out');
   document.getElementById('auth-btn').onclick = logout;
   document.getElementById('auth-btn').className = 'secondary';
-  await loadCustomers();
+  // Load both lists in parallel
+  await Promise.all([loadCustomers(), loadOrgs()]);
+  applyLang();
   // setupSearch() handles restoring customer from sessionStorage/localStorage
 }
 
@@ -1115,10 +1428,10 @@ function copyTable(btn, tab) {
 
   var success = function() {
     btn.classList.add('copied');
-    btn.textContent = 'Copied!';
+    btn.textContent = t('copied');
     setTimeout(function() {
       btn.classList.remove('copied');
-      btn.textContent = 'Copy';
+      btn.textContent = t('copy');
     }, 2000);
   };
 
@@ -1138,6 +1451,7 @@ function copyTable(btn, tab) {
 function updateURL() {
   const params = new URLSearchParams();
   if (selectedCustomer) params.set('customer', selectedCustomer);
+  if (selectedOrg)      params.set('org', selectedOrg);
   if (currentTab && currentTab !== 'support') params.set('tab', currentTab);
   const qs = params.toString();
   window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
@@ -1161,6 +1475,7 @@ function restoreFromURL() {
 
 init();
 
+
 // ── Theme toggle ───────────────────────────────────────────────────────────
 (function() {
   const btn = document.getElementById('theme-toggle');
@@ -1180,6 +1495,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.1347</div>
+<div id="version-tag">v1.0602.1558</div>
 </body>
 </html>
