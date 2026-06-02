@@ -126,6 +126,56 @@
   #auth-screen .connect-btn:hover { opacity: 0.85; }
 
   /* ── Customer picker ── */
+  /* ── Preset filters ── */
+  #preset-section {
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+  }
+  .preset-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+  .preset-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .preset-btn {
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .preset-btn .preset-spinner {
+    width: 10px; height: 10px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+  .preset-btn.loading .preset-spinner { display: inline-block; }
+
+  /* ── Search section ── */
+  .search-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
   #picker-row {
     display: flex;
     align-items: flex-start;
@@ -260,6 +310,31 @@
   }
   .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
   .stat-value { font-size: 26px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .clickable-stat { cursor: pointer; transition: opacity 0.15s; }
+  .clickable-stat:hover { opacity: 0.7; }
+
+  /* ── Resolved slider ── */
+  .resolved-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .resolved-day-btn {
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .resolved-day-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .resolved-day-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
   .stat-value.danger { color: var(--danger); }
   .stat-value.warning { color: var(--warning); }
   .stat-value.success { color: var(--success); }
@@ -364,6 +439,43 @@
   .copy-btn.copied { border-color: var(--success); color: var(--success); }
 
   /* ── Last comment toggle ── */
+  /* ── Product badges ── */
+  .product-badges { display: flex; flex-wrap: wrap; gap: 3px; }
+  .prod-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  /* Product filter bar */
+  #product-filter-bar {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 0 0;
+    font-size: 12px;
+  }
+  #product-filter-bar.visible { display: flex; }
+  .prod-filter-btn {
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.15s;
+  }
+  .prod-filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .prod-filter-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+  .prod-filter-label { font-size: 11px; color: var(--muted); }
+
   .comment-toggle-wrap {
     display: flex;
     align-items: center;
@@ -482,6 +594,20 @@
 
   <!-- App (shown after auth) -->
   <div id="app">
+    <!-- Preset filters -->
+    <div id="preset-section">
+      <div class="preset-section-label" data-i18n="preset_filters">Preset Filters</div>
+      <div class="preset-buttons">
+        <button class="preset-btn" id="preset-t1-all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — All Open</button>
+        <button class="preset-btn" id="preset-t1-icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP</button>
+        <button class="preset-btn" id="preset-t1-nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP</button>
+        <button class="preset-btn" id="preset-t2-all"     onclick="loadPreset('t2-all')">    <span class="preset-spinner"></span>Tier 2 — All Open</button>
+        <button class="preset-btn" id="preset-aging-all"  onclick="loadPreset('aging-all')"> <span class="preset-spinner"></span>All Aging (14D+)</button>
+      </div>
+    </div>
+
+    <!-- Customer / Org search -->
+    <div class="search-section-label" data-i18n="search_by">Search by Customer or Organization</div>
     <!-- Customer picker -->
     <div id="picker-row">
       <div class="search-box-wrap">
@@ -508,27 +634,27 @@
     <div class="stats-row" id="stats-row" style="display:none;">
       <div class="stat-card">
         <div class="stat-label" data-i18n="open_support">Open Support</div>
-        <div class="stat-value info" id="stat-support">—</div>
+        <div class="stat-value info clickable-stat" id="stat-support" onclick="switchTab('support')" title="View support tickets">—</div>
       </div>
       <div class="stat-card">
         <div class="stat-label" data-i18n="open_engineering">Open Engineering</div>
-        <div class="stat-value info" id="stat-eng">—</div>
+        <div class="stat-value info clickable-stat" id="stat-eng" onclick="switchTab('engineering')" title="View engineering tickets">—</div>
       </div>
       <div class="stat-card">
         <div class="stat-label" data-i18n="open_ops">Open OPS</div>
-        <div class="stat-value info" id="stat-ops">—</div>
+        <div class="stat-value info clickable-stat" id="stat-ops" onclick="switchTab('ops')" title="View ops tickets">—</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Aging (14d+)</div>
-        <div class="stat-value danger" id="stat-aging">—</div>
+        <div class="stat-value danger clickable-stat" id="stat-aging" onclick="switchTab('aging')" title="View tickets">—</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Resolved (30d)</div>
-        <div class="stat-value success" id="stat-resolved">—</div>
+        <div class="stat-value success clickable-stat" id="stat-resolved" onclick="switchTab('resolved')" title="View tickets">—</div>
       </div>
       <div class="stat-card">
         <div class="stat-label" data-i18n="feature_requests">Feature Requests</div>
-        <div class="stat-value warning" id="stat-fr">—</div>
+        <div class="stat-value warning clickable-stat" id="stat-fr" onclick="switchTab('fr')" title="View tickets">—</div>
       </div>
     </div>
 
@@ -543,11 +669,14 @@
     </div>
 
     <!-- Issues panel -->
+    <div id="product-filter-bar">
+      <span class="prod-filter-label" data-i18n="filter_by_product">Filter by product:</span>
+    </div>
     <div id="issues-panel"></div>
   </div>
 </main>
 
-<script>
+<script charset="utf-8">
 // ── Preserve URL params before OAuth redirect wipes them ─────────────────────
 (function() {
   var p = new URLSearchParams(window.location.search);
@@ -558,10 +687,17 @@
     else                   sessionStorage.removeItem('ew_pending_org');
     if (p.get('tab'))      sessionStorage.setItem('ew_pending_tab', p.get('tab'));
     else                   sessionStorage.removeItem('ew_pending_tab');
+    if (p.get('resolved_days')) sessionStorage.setItem('ew_pending_resolved_days', p.get('resolved_days'));
+    else                        sessionStorage.removeItem('ew_pending_resolved_days');
+    if (p.get('product')) { sessionStorage.setItem('ew_product_filter', p.get('product')); }
+    else                  { sessionStorage.removeItem('ew_product_filter'); }
+    if (p.get('preset'))  { sessionStorage.setItem('ew_pending_preset', p.get('preset')); }
+    else                  { sessionStorage.removeItem('ew_pending_preset'); }
   } else if (!p.get('code')) {
     sessionStorage.removeItem('ew_pending_customer');
     sessionStorage.removeItem('ew_pending_org');
     sessionStorage.removeItem('ew_pending_tab');
+    sessionStorage.removeItem('ew_pending_resolved_days');
   }
   // If it's an OAuth callback (?code=...), leave pending state alone — it was set on prior page load
 })();
@@ -594,6 +730,13 @@ const I18N = {
     col_assignee:         'Assignee',
     col_updated:          'Updated',
     col_resolved:         'Resolved',
+    col_created:          'Created',
+    col_product:          'Product',
+    resolved_label:       'Resolved:',
+    filter_by_product:    'Filter by product:',
+    preset_filters:       'Preset Filters',
+    search_by:            'Search by Customer or Organization',
+    all_products:         'All',
     last_comment:         'Last Comment',
     no_issues:            'No issues found.',
     loading:              'Loading…',
@@ -635,6 +778,13 @@ const I18N = {
     col_assignee:         'Asignado',
     col_updated:          'Actualizado',
     col_resolved:         'Resuelto',
+    col_created:          'Creado',
+    col_product:          'Producto',
+    resolved_label:       'Resueltos:',
+    filter_by_product:    'Filtrar por producto:',
+    preset_filters:       'Filtros Predefinidos',
+    search_by:            'Buscar por Cliente u Organización',
+    all_products:         'Todos',
     last_comment:         'Último Comentario',
     no_issues:            'No se encontraron tickets.',
     loading:              'Cargando…',
@@ -760,6 +910,11 @@ let selectedCustomer = null;
 let showComments = localStorage.getItem('ew_comments') === 'true';
 let allOrgs = [];
 let selectedOrg = null; // separate from selectedCustomer
+let resolvedDays = parseInt(localStorage.getItem('ew_resolved_days') || '30');
+let activeProductFilter = sessionStorage.getItem('ew_product_filter') || localStorage.getItem('ew_product_filter') || '';
+let activePreset = '';
+let presetCache = {}; // key -> {issues, ts}
+const PRESET_TTL = 30 * 60 * 1000; // 30 minutes
 let currentTab     = 'support';
 let issueCache     = {};
 
@@ -879,7 +1034,7 @@ async function jiraFetch(path, params = {}) {
 
 
 
-async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate,comment', maxResults = 100) {
+async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate,comment,customfield_12284', maxResults = 100) {
   // search/jql uses nextPageToken pagination, not startAt
   const allIssues = [];
   let nextPageToken = null;
@@ -1037,6 +1192,9 @@ function selectCustomer(name) {
   selectedCustomer = name;
   selectedOrg = null;
   localStorage.removeItem('ew_org');
+  localStorage.removeItem('ew_product_filter');
+  sessionStorage.removeItem('ew_product_filter');
+  activeProductFilter = '';
   issueCache = {};
   document.getElementById('customer-search').value = '';
   document.getElementById('org-search').value = '';
@@ -1108,7 +1266,7 @@ const BUCKETS = {
   engineering: c => `project in ${jqlProjects(ENGINEERING_PROJECTS)} AND ${makeJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
   ops: c => `project in ${jqlProjects(OPS_PROJECTS)} AND ${makeJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
   aging: c => `project in ${jqlProjects([...SUPPORT_PROJECTS,...OPS_PROJECTS])} AND ${makeJql(c)} AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC`,
-  resolved: c => `project in ${jqlProjects(ALL_PROJECTS)} AND ${makeJql(c)} AND statusCategory = Done AND resolved >= "-30d" ORDER BY resolutiondate DESC`,
+  resolved: c => `project in ${jqlProjects(ALL_PROJECTS)} AND ${makeJql(c)} AND statusCategory = Done AND resolved >= "-${resolvedDays}d" ORDER BY resolutiondate DESC`,
   fr: c => `project in ("FR","PRD") AND ${makeJql(c)} ORDER BY statusCategory ASC, priority ASC`,
 };
 
@@ -1150,10 +1308,42 @@ function updateCount(key, count) {
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`tab-${tab}`).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
   localStorage.setItem('ew_tab', tab);
+  // Show resolved slider only on resolved tab
+  const sliderWrap = document.getElementById('resolved-slider-wrap');
+  if (sliderWrap) sliderWrap.style.display = tab === 'resolved' ? 'flex' : 'none';
   updateURL();
   renderTab(tab);
+}
+
+function updateProductFilterBar(tab) {
+  const bar = document.getElementById('product-filter-bar');
+  const issues = issueCache[tab] || [];
+  const products = new Set();
+  issues.forEach(i => {
+    (i.fields.customfield_12284 || []).forEach(p => products.add(p.value));
+  });
+  if (products.size === 0) { bar.classList.remove('visible'); return; }
+  bar.classList.add('visible');
+  let html = '<span class="prod-filter-label">' + t('filter_by_product') + '</span>';
+  html += '<button class="prod-filter-btn' + (activeProductFilter === '' ? ' active' : '') + '" data-product="" data-tab="' + escHtml(tab) + '">' + t('all_products') + '</button>';
+  [...products].sort().forEach(p => {
+    html += '<button class="prod-filter-btn' + (activeProductFilter === p ? ' active' : '') + '" data-product="' + escHtml(p) + '" data-tab="' + escHtml(tab) + '">' + escHtml(p) + '</button>';
+  });
+  bar.innerHTML = html;
+  bar.querySelectorAll('.prod-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setProductFilter(btn.getAttribute('data-product'), btn.getAttribute('data-tab'));
+    });
+  });
+}
+function setProductFilter(product, tab) {
+  activeProductFilter = product;
+  localStorage.setItem('ew_product_filter', product);
+  sessionStorage.setItem('ew_product_filter', product);
+  updateURL();
+  renderTab(tab || currentTab);
 }
 
 function renderTab(tab) {
@@ -1183,7 +1373,7 @@ function renderTab(tab) {
       <div class="table-header">
         <span class="table-title">${TITLES[tab]}</span>
         <div style="display:flex;align-items:center;gap:12px;">
-          <span class="table-meta">${issues.length} ${issues.length !== 1 ? t('issues_suffix') : t('issue_suffix')}</span>
+          <span class="table-meta">${filteredIssues.length}${activeProductFilter ? ' / ' + issues.length : ''} ${filteredIssues.length !== 1 ? t('issues_suffix') : t('issue_suffix')}</span>
           <label class="comment-toggle-wrap" title="Show last comment for each ticket">
             <span data-i18n="last_comment">Last Comment</span>
             <span class="toggle-switch">
@@ -1206,10 +1396,13 @@ function renderTab(tab) {
             <th>Priority</th>
             <th>Assignee</th>
             <th>${tab === 'resolved' ? 'Resolved' : 'Updated'}</th>
+            ${activePreset ? '<th>Customer(s)</th>' : ''}
+            <th>Created</th>
+            <th>Product</th>
           </tr>
         </thead>
         <tbody>
-          ${issues.map(i => renderRow(i, tab)).join('')}
+          ${filteredIssues.map(i => renderRow(i, tab)).join('')}
         </tbody>
       </table>
     </div>`;
@@ -1238,6 +1431,8 @@ function renderRow(issue, tab) {
   const priority  = f.priority?.name || '';
   const assignee  = f.assignee?.displayName || '—';
   const updated   = f.updated || f.resolutiondate || f.created || '';
+  const created   = f.created || '';
+  const product   = (f.customfield_12284 || []).map(p => p.value).join(', ');
   const url       = `https://engageware.atlassian.net/browse/${key}`;
 
   const statusBadge = (() => {
@@ -1329,6 +1524,22 @@ async function initApp() {
   // Load both lists in parallel
   await Promise.all([loadCustomers(), loadOrgs()]);
   applyLang();
+  // Wire up resolved slider
+  // Wire up resolved day buttons
+  document.querySelectorAll('.resolved-day-btn').forEach(function(btn) {
+    const days = parseInt(btn.getAttribute('data-days'));
+    if (days === resolvedDays) btn.classList.add('active');
+    else btn.classList.remove('active');
+    btn.addEventListener('click', function() {
+      resolvedDays = days;
+      localStorage.setItem('ew_resolved_days', resolvedDays);
+      document.querySelectorAll('.resolved-day-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateURL();
+      issueCache['resolved'] = null;
+      loadAllBuckets();
+    });
+  });
   restoreFromState();
 }
 
@@ -1358,13 +1569,17 @@ function copyTable(btn, tab) {
 
   const dateCol = tab === 'resolved' ? 'Resolved' : 'Updated';
   const headers = ['Key', 'Summary', 'Status', 'Priority', 'Assignee', dateCol];
+  if (activePreset) headers.push('Customer(s)');
+  headers.push('Created', 'Product');
   if (showComments) headers.push('Last Comment Author', 'Last Comment Date', 'Last Comment');
 
   const rows = issues.map(function(issue) {
     const f = issue.fields;
     const updated = f.updated || f.resolutiondate || f.created || '';
     const date = updated ? new Date(updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-    const row = [
+    const createdDate = f.created ? new Date(f.created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    const productVal  = (f.customfield_12284 || []).map(function(p) { return p.value; }).join(', ');
+    var row = [
       issue.key,
       (f.summary || '').split(String.fromCharCode(9)).join(' ').split(String.fromCharCode(10)).join(' '),
       f.status && f.status.name ? f.status.name : '',
@@ -1372,6 +1587,8 @@ function copyTable(btn, tab) {
       f.assignee && f.assignee.displayName ? f.assignee.displayName : '',
       date,
     ];
+    if (activePreset) row.push((f.customfield_10100 || []).map(function(c) { return c.value; }).join(', '));
+    row.push(createdDate, productVal);
     if (showComments) {
       const comments = (f.comment && f.comment.comments) ? f.comment.comments : [];
       if (comments.length) {
@@ -1431,19 +1648,124 @@ function updateURL() {
   if (selectedCustomer) params.set('customer', selectedCustomer);
   if (selectedOrg)      params.set('org', selectedOrg);
   if (currentTab && currentTab !== 'support') params.set('tab', currentTab);
+  if (resolvedDays !== 30) params.set('resolved_days', resolvedDays);
+  if (activeProductFilter) params.set('product', activeProductFilter);
+  if (activePreset)        params.set('preset', activePreset);
   const qs = params.toString();
   window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
 }
 
 
 
+// ── Preset filters ───────────────────────────────────────────────────────────
+function getPresetQueries() {
+  return {
+    't1-all':    'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 1" AND statusCategory != Done ORDER BY priority ASC, created ASC',
+    't1-icp':    'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 1" AND cf[13874] = "Yes" AND statusCategory != Done ORDER BY priority ASC, created ASC',
+    't1-nonicp': 'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 1" AND cf[13874] = "No" AND statusCategory != Done ORDER BY priority ASC, created ASC',
+    't2-all':    'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 2" AND statusCategory != Done ORDER BY priority ASC, created ASC',
+    'aging-all': 'project in ' + jqlProjects([...SUPPORT_PROJECTS, ...OPS_PROJECTS]) + ' AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC',
+  };
+}
+
+async function loadPreset(key) {
+  var PRESET_QUERIES = getPresetQueries();
+  if (!PRESET_QUERIES[key]) return;
+
+  if (activePreset === key) {
+    activePreset = '';
+    localStorage.removeItem('ew_preset');
+    document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
+    clearCustomer();
+    updateURL();
+    return;
+  }
+
+  activePreset = key;
+  selectedCustomer = null;
+  selectedOrg = null;
+  issueCache = {};
+  activeProductFilter = '';
+  localStorage.setItem('ew_preset', key);
+
+  document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active', 'loading'); });
+  var btn = document.getElementById('preset-' + key);
+  if (btn) btn.classList.add('active', 'loading');
+
+  document.getElementById('customer-badge').classList.remove('visible');
+  document.getElementById('customer-search').value = '';
+  document.getElementById('org-search').value = '';
+  document.getElementById('stats-row').style.display = 'none';
+  document.getElementById('bucket-tabs').style.display = 'flex';
+  document.getElementById('issues-panel').innerHTML = '<div class="table-container"><div class="loading"><div class="spinner"></div><br>' + t('loading') + '</div></div>';
+  updateURL();
+
+  try {
+    var cached = presetCache[key];
+    var issues;
+    if (cached && Date.now() - cached.ts < PRESET_TTL) {
+      issues = cached.issues;
+      console.log('[CSM] Preset ' + key + ' from cache (' + issues.length + ')');
+    } else {
+      // Paginate until all results are fetched
+      issues = [];
+      var nextPageToken = null;
+      var fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate,comment,customfield_12284,customfield_10100,customfield_13703,customfield_13874';
+      do {
+        var params = { jql: PRESET_QUERIES[key], fields: fields, maxResults: 100 };
+        if (nextPageToken) params.nextPageToken = nextPageToken;
+        var data = await jiraFetch('/rest/api/3/issue/search', params);
+        var batch = data.issues || [];
+        issues = issues.concat(batch);
+        nextPageToken = data.nextPageToken || null;
+        if (batch.length < 100) break;
+      } while (nextPageToken);
+      presetCache[key] = { issues: issues, ts: Date.now() };
+      console.log('[CSM] Preset ' + key + ' from API (' + issues.length + ')');
+    }
+    Object.keys(BUCKETS).forEach(function(k) { issueCache[k] = issues; });
+    updateCount('support', issues.length);
+    ['engineering','ops','aging','resolved','fr'].forEach(function(k) { updateCount(k, ''); });
+    if (btn) btn.classList.remove('loading');
+    currentTab = 'support';
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    var supTab = document.getElementById('tab-support');
+    if (supTab) supTab.classList.add('active');
+    renderTab('support');
+  } catch(e) {
+    console.error('[CSM] Preset load failed:', e);
+    if (btn) btn.classList.remove('active', 'loading');
+    activePreset = '';
+  }
+}
+
 function restoreFromState() {
-  const urlCustomer = sessionStorage.getItem('ew_pending_customer');
-  const urlOrg      = sessionStorage.getItem('ew_pending_org');
-  const urlTab      = sessionStorage.getItem('ew_pending_tab');
+  const urlCustomer     = sessionStorage.getItem('ew_pending_customer');
+  const urlOrg          = sessionStorage.getItem('ew_pending_org');
+  const urlTab          = sessionStorage.getItem('ew_pending_tab');
+  const urlResolvedDays = sessionStorage.getItem('ew_pending_resolved_days');
   sessionStorage.removeItem('ew_pending_customer');
   sessionStorage.removeItem('ew_pending_org');
   sessionStorage.removeItem('ew_pending_tab');
+  sessionStorage.removeItem('ew_pending_resolved_days');
+
+  const urlProduct = sessionStorage.getItem('ew_product_filter');
+  if (urlProduct !== null) {
+    activeProductFilter = urlProduct;
+    localStorage.setItem('ew_product_filter', urlProduct);
+  }
+
+  const urlPreset = sessionStorage.getItem('ew_pending_preset') || localStorage.getItem('ew_preset');
+  sessionStorage.removeItem('ew_pending_preset');
+
+  if (urlResolvedDays) {
+    resolvedDays = parseInt(urlResolvedDays);
+    localStorage.setItem('ew_resolved_days', resolvedDays);
+    document.querySelectorAll('.resolved-day-btn').forEach(function(btn) {
+      const d = parseInt(btn.getAttribute('data-days'));
+      btn.classList.toggle('active', d === resolvedDays);
+    });
+  }
 
   const savedCustomer = urlCustomer || localStorage.getItem('ew_customer');
   const savedOrg      = urlOrg      || localStorage.getItem('ew_org');
@@ -1465,21 +1787,25 @@ function restoreFromState() {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       const tabEl = document.getElementById('tab-' + tab);
       if (tabEl) tabEl.classList.add('active');
+      const sliderWrap = document.getElementById('resolved-slider-wrap');
+      if (sliderWrap) sliderWrap.style.display = tab === 'resolved' ? 'flex' : 'none';
     }
   }
 
+  // Preset takes lowest priority — only if no customer/org
   const matchedOrg      = findMatch(savedOrg, allOrgs);
   const matchedCustomer = findMatch(savedCustomer, allCustomers);
 
-  console.log('[CSM] matched:', { matchedOrg, matchedCustomer });
+  console.log('[CSM] matched:', { matchedOrg, matchedCustomer, urlPreset });
 
-  // If both are set, customer wins — user explicitly navigated to a customer
   if (matchedCustomer) {
     restoreTab(savedTab);
     selectCustomer(matchedCustomer);
   } else if (matchedOrg) {
     restoreTab(savedTab);
     selectOrg(matchedOrg);
+  } else if (urlPreset && getPresetQueries()[urlPreset]) {
+    loadPreset(urlPreset);
   }
 }
 
@@ -1505,6 +1831,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.1622</div>
+<div id="version-tag">v1.0602.2325</div>
 </body>
 </html>
