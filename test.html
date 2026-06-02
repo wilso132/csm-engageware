@@ -598,10 +598,10 @@
     <div id="preset-section">
       <div class="preset-section-label" data-i18n="preset_filters">Preset Filters</div>
       <div class="preset-buttons">
-        <button class="preset-btn" id="preset-t1-all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — Open (excl. Resolved)</button>
-        <button class="preset-btn" id="preset-t1-icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP (Open)</button>
-        <button class="preset-btn" id="preset-t1-nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP (Open)</button>
-        <button class="preset-btn" id="preset-t2-all"     onclick="loadPreset('t2-all')">    <span class="preset-spinner"></span>Tier 2 — Open (excl. Resolved)</button>
+        <button class="preset-btn" id="preset-t1-all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — All Open</button>
+        <button class="preset-btn" id="preset-t1-icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP</button>
+        <button class="preset-btn" id="preset-t1-nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP</button>
+        <button class="preset-btn" id="preset-t2-all"     onclick="loadPreset('t2-all')">    <span class="preset-spinner"></span>Tier 2 — All Open</button>
         <button class="preset-btn" id="preset-aging-all"  onclick="loadPreset('aging-all')"> <span class="preset-spinner"></span>All Aging (30D+)</button>
         <button class="preset-btn" id="preset-aging-90"   onclick="loadPreset('aging-90')">  <span class="preset-spinner"></span>All Aging (90D+)</button>
       </div>
@@ -1342,11 +1342,12 @@ function updateCount(key, count) {
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
+  const tabEl = document.getElementById('tab-' + tab);
+  if (tabEl) tabEl.classList.add('active');
   localStorage.setItem('ew_tab', tab);
-  // Show resolved slider only on resolved tab
+  // Show resolved day buttons only on resolved tab
   const sliderWrap = document.getElementById('resolved-slider-wrap');
-  if (sliderWrap) sliderWrap.style.display = tab === 'resolved' ? 'flex' : 'none';
+  if (sliderWrap) sliderWrap.style.setProperty('display', tab === 'resolved' ? 'flex' : 'none', 'important');
   updateURL();
   renderTab(tab);
 }
@@ -1707,12 +1708,17 @@ function copyTable(btn, tab) {
 // ── URL state ─────────────────────────────────────────────────────────────────
 function updateURL() {
   const params = new URLSearchParams();
-  if (selectedCustomer) params.set('customer', selectedCustomer);
-  if (selectedOrg)      params.set('org', selectedOrg);
+  // customer/org/preset are mutually exclusive — only one in URL at a time
+  if (activePreset) {
+    params.set('preset', activePreset);
+  } else if (selectedCustomer) {
+    params.set('customer', selectedCustomer);
+  } else if (selectedOrg) {
+    params.set('org', selectedOrg);
+  }
   if (currentTab && currentTab !== 'support') params.set('tab', currentTab);
   if (resolvedDays !== 30) params.set('resolved_days', resolvedDays);
   if (activeProductFilter) params.set('product', activeProductFilter);
-  if (activePreset)        params.set('preset', activePreset);
   const qs = params.toString();
   window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
 }
@@ -1750,6 +1756,8 @@ async function loadPreset(key) {
   issueCache = {};
   activeProductFilter = '';
   localStorage.setItem('ew_preset', key);
+  localStorage.removeItem('ew_customer');
+  localStorage.removeItem('ew_org');
 
   document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active', 'loading'); });
   var btn = document.getElementById('preset-' + key);
@@ -1851,7 +1859,7 @@ function restoreFromState() {
       const tabEl = document.getElementById('tab-' + tab);
       if (tabEl) tabEl.classList.add('active');
       const sliderWrap = document.getElementById('resolved-slider-wrap');
-      if (sliderWrap) sliderWrap.style.display = tab === 'resolved' ? 'flex' : 'none';
+      if (sliderWrap) sliderWrap.style.setProperty('display', tab === 'resolved' ? 'flex' : 'none', 'important');
     }
   }
 
@@ -1894,6 +1902,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.2335</div>
+<div id="version-tag">v1.0602.2338</div>
 </body>
 </html>
