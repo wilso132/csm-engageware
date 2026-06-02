@@ -1433,18 +1433,47 @@ function updateURL() {
 
 
 function restoreFromState() {
-  const params = new URLSearchParams(window.location.search);
-  const customer = params.get('customer');
-  const tab = params.get('tab');
-  if (customer && allCustomers.includes(customer)) {
-    selectCustomer(customer);
+  const urlCustomer = sessionStorage.getItem('ew_pending_customer');
+  const urlOrg      = sessionStorage.getItem('ew_pending_org');
+  const urlTab      = sessionStorage.getItem('ew_pending_tab');
+  sessionStorage.removeItem('ew_pending_customer');
+  sessionStorage.removeItem('ew_pending_org');
+  sessionStorage.removeItem('ew_pending_tab');
+
+  const savedCustomer = urlCustomer || localStorage.getItem('ew_customer');
+  const savedOrg      = urlOrg      || localStorage.getItem('ew_org');
+  const savedTab      = urlTab      || localStorage.getItem('ew_tab');
+
+  console.log('[CSM] restoreFromState:', { savedCustomer, savedOrg, savedTab, orgsLen: allOrgs.length, customersLen: allCustomers.length });
+
+  function findMatch(value, list) {
+    if (!value) return null;
+    const exact = list.find(x => x === value);
+    if (exact) return exact;
+    const lower = value.toLowerCase();
+    return list.find(x => x.toLowerCase().includes(lower)) || null;
+  }
+
+  function restoreTab(tab) {
     if (tab) {
-      // Switch to the right tab after buckets load
-      setTimeout(() => {
-        const btn = document.getElementById(`tab-${tab}`);
-        if (btn) btn.click();
-      }, 500);
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const tabEl = document.getElementById('tab-' + tab);
+      if (tabEl) tabEl.classList.add('active');
     }
+  }
+
+  const matchedOrg      = findMatch(savedOrg, allOrgs);
+  const matchedCustomer = findMatch(savedCustomer, allCustomers);
+
+  console.log('[CSM] matched:', { matchedOrg, matchedCustomer });
+
+  if (matchedOrg) {
+    restoreTab(savedTab);
+    selectOrg(matchedOrg);
+  } else if (matchedCustomer) {
+    restoreTab(savedTab);
+    selectCustomer(matchedCustomer);
   }
 }
 
@@ -1470,6 +1499,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.1610</div>
+<div id="version-tag">v1.0602.1617</div>
 </body>
 </html>
