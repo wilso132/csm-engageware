@@ -547,10 +547,19 @@ async function jiraFetch(path, params = {}) {
 
 
 async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate', maxResults = 100) {
-  const data = await jiraFetch('/rest/api/3/issue/search', {
-    jql, fields, maxResults, validateQuery: 'warn'
-  });
-  return data.issues || [];
+  // search/jql uses nextPageToken pagination, not startAt
+  const allIssues = [];
+  let nextPageToken = null;
+  do {
+    const params = { jql, fields, maxResults };
+    if (nextPageToken) params.nextPageToken = nextPageToken;
+    const data = await jiraFetch('/rest/api/3/issue/search', params);
+    const issues = data.issues || [];
+    allIssues.push(...issues);
+    nextPageToken = data.nextPageToken || null;
+    if (issues.length < maxResults) break;
+  } while (nextPageToken);
+  return allIssues;
 }
 
 // ── Customer list ─────────────────────────────────────────────────────────────
@@ -584,6 +593,10 @@ async function loadCustomers() {
 function setupSearch() {
   const input = document.getElementById('customer-search');
   const list  = document.getElementById('dropdown-list');
+
+  // Enable the input now that customers are loaded
+  input.disabled = false;
+  input.placeholder = 'Search customers...';
 
   input.addEventListener('input', () => {
     const q = input.value.toLowerCase();
