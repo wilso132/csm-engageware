@@ -665,9 +665,12 @@ function setupSearch() {
       list.classList.remove('open');
   });
 
-  // Restore saved state now that customers are loaded
-  const savedCustomer = localStorage.getItem('ew_customer');
-  const savedTab      = localStorage.getItem('ew_tab');
+  // URL params take priority over localStorage
+  const urlParams     = new URLSearchParams(window.location.search);
+  const urlCustomer   = urlParams.get('customer');
+  const urlTab        = urlParams.get('tab');
+  const savedCustomer = urlCustomer || localStorage.getItem('ew_customer');
+  const savedTab      = urlTab      || localStorage.getItem('ew_tab');
   if (savedCustomer && allCustomers.includes(savedCustomer)) {
     currentTab = savedTab || 'support';
     selectCustomer(savedCustomer);
