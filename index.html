@@ -335,6 +335,7 @@
 <header>
   <div class="logo">engageware<span>/</span>csm</div>
   <div id="header-right">
+    <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode">🌙</button>
     <button id="auth-btn" onclick="startAuth()">Connect to Jira</button>
   </div>
 </header>
@@ -614,6 +615,20 @@ function setupSearch() {
     if (!document.getElementById('customer-dropdown').contains(e.target))
       list.classList.remove('open');
   });
+
+  // Restore saved state now that customers are loaded
+  const savedCustomer = localStorage.getItem('ew_customer');
+  const savedTab      = localStorage.getItem('ew_tab');
+  if (savedCustomer && allCustomers.includes(savedCustomer)) {
+    currentTab = savedTab || 'support';
+    selectCustomer(savedCustomer);
+    // Make sure the right tab is highlighted
+    if (savedTab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const tabEl = document.getElementById(`tab-${savedTab}`);
+      if (tabEl) tabEl.classList.add('active');
+    }
+  }
 }
 
 function renderDropdown(customers) {
@@ -634,12 +649,15 @@ function selectCustomer(name) {
   document.getElementById('customer-badge').classList.add('visible');
   document.getElementById('stats-row').style.display = 'grid';
   document.getElementById('bucket-tabs').style.display = 'flex';
+  localStorage.setItem('ew_customer', name);
   loadAllBuckets();
 }
 
 function clearCustomer() {
   selectedCustomer = null;
   issueCache = {};
+  localStorage.removeItem('ew_customer');
+  localStorage.removeItem('ew_tab');
   document.getElementById('customer-badge').classList.remove('visible');
   document.getElementById('stats-row').style.display = 'none';
   document.getElementById('bucket-tabs').style.display = 'none';
@@ -704,6 +722,7 @@ function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
+  localStorage.setItem('ew_tab', tab);
   renderTab(tab);
 }
 
