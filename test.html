@@ -897,51 +897,72 @@ async function searchIssues(jql, fields = 'summary,status,priority,issuetype,ass
 
 // ── Customer list ─────────────────────────────────────────────────────────────
 async function loadOrgs() {
-  allOrgs = [];
-  try {
-    let start = 0;
-    while (true) {
-      const data = await jiraFetch('/rest/servicedeskapi/organization', { limit: 50, start });
-      const values = data.values || [];
-      values.forEach(o => { if (o.name) allOrgs.push(o.name); });
-      if (data.isLastPage || values.length === 0) break;
-      start += values.length;
+  // Check cache first — orgs don't change often
+  const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+  const cached = localStorage.getItem('ew_cache_orgs');
+  const cachedAt = parseInt(localStorage.getItem('ew_cache_orgs_ts') || '0');
+  if (cached && Date.now() - cachedAt < CACHE_TTL) {
+    allOrgs = JSON.parse(cached);
+    console.log(`[CSM] Loaded ${allOrgs.length} orgs from cache`);
+  } else {
+    allOrgs = [];
+    try {
+      let start = 0;
+      while (true) {
+        const data = await jiraFetch('/rest/servicedeskapi/organization', { limit: 50, start });
+        const values = data.values || [];
+        values.forEach(o => { if (o.name) allOrgs.push(o.name); });
+        if (data.isLastPage || values.length === 0) break;
+        start += values.length;
+      }
+      allOrgs = [...new Set(allOrgs)].sort();
+      localStorage.setItem('ew_cache_orgs', JSON.stringify(allOrgs));
+      localStorage.setItem('ew_cache_orgs_ts', String(Date.now()));
+      console.log(`[CSM] Loaded ${allOrgs.length} orgs from API`);
+    } catch(e) {
+      console.error('[CSM] Failed to load orgs:', e);
     }
-    allOrgs = [...new Set(allOrgs)].sort();
-    console.log(`[CSM] Loaded ${allOrgs.length} organizations`);
-  } catch(e) {
-    console.error('[CSM] Failed to load orgs:', e);
   }
   // Enable org search input
   const orgInput = document.getElementById('org-search');
   if (orgInput) {
     orgInput.disabled = false;
-    orgInput.placeholder = 'Search organizations...';
+    orgInput.placeholder = t('search_orgs');
   }
 }
 
 async function loadCustomers() {
-  // Use field context options API — no JQL, no issue search, just the field definition
-  try {
-    const ctxData = await jiraFetch('/rest/api/3/field/customfield_10100/context', { maxResults: 50 });
-    const contexts = ctxData.values || [];
-    for (const ctx of contexts) {
-      let startAt = 0;
-      while (true) {
-        const opts = await jiraFetch(
-          `/rest/api/3/field/customfield_10100/context/${ctx.id}/option`,
-          { maxResults: 100, startAt }
-        );
-        const values = opts.values || [];
-        values.forEach(o => { if (o.value) allCustomers.push(o.value); });
-        if (opts.isLast || values.length === 0) break;
-        startAt += values.length;
+  // Check cache first — customer field options don't change often
+  const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+  const cached = localStorage.getItem('ew_cache_customers');
+  const cachedAt = parseInt(localStorage.getItem('ew_cache_customers_ts') || '0');
+  if (cached && Date.now() - cachedAt < CACHE_TTL) {
+    allCustomers = JSON.parse(cached);
+    console.log(`[CSM] Loaded ${allCustomers.length} customers from cache`);
+  } else {
+    try {
+      const ctxData = await jiraFetch('/rest/api/3/field/customfield_10100/context', { maxResults: 50 });
+      const contexts = ctxData.values || [];
+      for (const ctx of contexts) {
+        let startAt = 0;
+        while (true) {
+          const opts = await jiraFetch(
+            `/rest/api/3/field/customfield_10100/context/${ctx.id}/option`,
+            { maxResults: 100, startAt }
+          );
+          const values = opts.values || [];
+          values.forEach(o => { if (o.value) allCustomers.push(o.value); });
+          if (opts.isLast || values.length === 0) break;
+          startAt += values.length;
+        }
       }
+      allCustomers = [...new Set(allCustomers)].sort();
+      localStorage.setItem('ew_cache_customers', JSON.stringify(allCustomers));
+      localStorage.setItem('ew_cache_customers_ts', String(Date.now()));
+      console.log(`[CSM] Loaded ${allCustomers.length} customers from API`);
+    } catch(e) {
+      console.error('[CSM] Failed to load customers:', e);
     }
-    allCustomers = [...new Set(allCustomers)].sort();
-    console.log(`[CSM] Loaded ${allCustomers.length} customers from field options`);
-  } catch(e) {
-    console.error('[CSM] Failed to load customers:', e);
   }
   setupSearch();
 }
@@ -949,7 +970,7 @@ async function loadCustomers() {
 // ── Search / dropdown ─────────────────────────────────────────────────────────
 function setupSearch() {
   const input = document.getElementById('customer-search');
-  const list  = document.getElementById('dropdown-list');
+  const list  = document.getElementById('customer-dropdown-list');
 
   // Enable the input now that customers are loaded
   input.disabled = false;
@@ -1031,7 +1052,7 @@ function setupSearch() {
 }
 
 function renderDropdown(customers) {
-  const list = document.getElementById('dropdown-list');
+  const list = document.getElementById('customer-dropdown-list');
   list.innerHTML = customers.map(c =>
     `<div class="dropdown-item" onclick="selectCustomer('${c.replace(/'/g,"\\'")}')">
        ${c}
@@ -1043,7 +1064,7 @@ function selectCustomer(name) {
   selectedCustomer = name;
   issueCache = {};
   document.getElementById('customer-search').value = '';
-  document.getElementById('dropdown-list').classList.remove('open');
+  document.getElementById('customer-dropdown-list').classList.remove('open');
   document.getElementById('badge-name').textContent = name;
   document.getElementById('customer-badge').classList.add('visible');
   document.getElementById('stats-row').style.display = 'grid';
@@ -1474,6 +1495,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.1556</div>
+<div id="version-tag">v1.0602.1558</div>
 </body>
 </html>
