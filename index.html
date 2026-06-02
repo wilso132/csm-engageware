@@ -408,8 +408,29 @@
 const CLIENT_ID    = 'LmckYe4wFOygrvm4VEKmj0D6MTTP6Gjx';
 const REDIRECT_URI = 'https://wilso132.github.io/csm-engageware/';
 const WORKER_URL   = 'https://csm-token-exchange.mwilson-7a1.workers.dev/';
-const JIRA_BASE    = 'https://api.atlassian.com/ex/jira/884f99a4-d05f-496a-8a4c-ff1e2c2d2bc9';
+let JIRA_BASE = localStorage.getItem('ew_jira_base') || 
+              'https://api.atlassian.com/ex/jira/884f99a4-d05f-496a-8a4c-ff1e2c2d2bc9';
 function getJiraBase() { return JIRA_BASE; }
+
+async function resolveCloudId() {
+  try {
+    const r = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+    });
+    if (!r.ok) throw new Error('Could not fetch sites');
+    const sites = await r.json();
+    console.log('[CSM] Accessible sites:', sites);
+    // Find engageware site
+    const site = sites.find(s => s.url && s.url.includes('engageware')) || sites[0];
+    if (site) {
+      JIRA_BASE = `https://api.atlassian.com/ex/jira/${site.id}`;
+      localStorage.setItem('ew_jira_base', JIRA_BASE);
+      console.log('[CSM] Using cloud ID:', site.id, 'for', site.url);
+    }
+  } catch(e) {
+    console.warn('[CSM] Could not resolve cloud ID, using default:', e.message);
+  }
+}
 const CUSTOMER_FIELD = 'cf[10100]';
 
 const SUPPORT_PROJECTS     = ['ASC','SCS','ACSC','TCST','AIC','AMXE'];
@@ -442,8 +463,12 @@ function startAuth() {
 
 function logout() {
   localStorage.removeItem('ew_access_token');
+  localStorage.removeItem('ew_refresh_token');
   localStorage.removeItem('ew_oauth_state');
+  localStorage.removeItem('ew_jira_base');
   accessToken = null;
+  // Clear any OAuth params from URL so callback doesn't re-trigger
+  window.history.replaceState({}, '', window.location.pathname);
   showAuthScreen();
 }
 
@@ -475,6 +500,8 @@ async function handleCallback() {
       if (data.refresh_token) {
         localStorage.setItem('ew_refresh_token', data.refresh_token);
       }
+      // Fetch the correct cloud ID for this token
+      await resolveCloudId();
       return true;
     } else {
       throw new Error(data.error_description || 'No access token returned');
@@ -777,18 +804,24 @@ async function initApp() {
 }
 
 async function init() {
-  // Handle OAuth callback
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('code')) {
-    await handleCallback();
+  // If already have a token, just init the app — don't process callback
+  if (accessToken) {
     window.history.replaceState({}, '', window.location.pathname);
+    // Re-resolve cloud ID in case it changed
+    if (!localStorage.getItem('ew_jira_base')) await resolveCloudId();
+    await initApp();
+    return;
   }
 
-  if (accessToken) {
-    await initApp();
-  } else {
-    showAuthScreen();
+  // Handle OAuth callback only if no token yet
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('code')) {
+    const ok = await handleCallback();
+    if (ok) await initApp();
+    return;
   }
+
+  showAuthScreen();
 }
 
 init();
