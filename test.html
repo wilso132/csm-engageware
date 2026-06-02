@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="https://engageware.com/wp-content/uploads/2026/04/Small-Logo-Blue-202x202-1.png" type="image/png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engageware CSM Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --accent: #4f6ef7;
+    --accent2: #7c3aed;
+    --text: #e8eaf6;
+    --muted: #6b7280;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+  }
+
+  [data-theme="light"] {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface2: #eef0f8;
+    --border: #d5d9ee;
+    --accent: #4f6ef7;
+    --accent2: #7c3aed;
+    --text: #1a1d2e;
+    --muted: #5a6072;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+  }
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: border-color 0.2s;
+    margin-right: 8px;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--accent); letter-spacing: 0.05em; }
+  .logo span { color: var(--muted); }
+  #auth-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  #auth-btn:hover { opacity: 0.85; }
+  #auth-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  /* ── Main ── */
+  main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+  /* ── Auth screen ── */
+  #auth-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    gap: 1rem;
+  }
+  #auth-screen h2 { font-size: 24px; font-weight: 500; }
+  #auth-screen p { color: var(--muted); font-size: 14px; max-width: 380px; line-height: 1.6; }
+  #auth-screen .connect-btn {
+    margin-top: 1rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  #auth-screen .connect-btn:hover { opacity: 0.85; }
+
+  /* ── Customer picker ── */
+  #picker-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 2rem;
+  }
+  #customer-search {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #customer-search:focus { border-color: var(--accent); }
+  #customer-search::placeholder { color: var(--muted); }
+
+  #customer-dropdown {
+    position: relative;
+  }
+  #dropdown-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 200;
+    display: none;
+  }
+  #dropdown-list.open { display: block; }
+  .dropdown-item {
+    padding: 9px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .dropdown-item:hover, .dropdown-item.selected { background: var(--border); }
+
+  /* ── Customer badge ── */
+  #customer-badge {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  #customer-badge.visible { display: flex; }
+  #clear-customer {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+  }
+  #clear-customer:hover { color: var(--danger); }
+
+  /* ── Bucket tabs ── */
+  .bucket-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+  .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tab-btn .count {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    margin-left: 5px;
+  }
+  .tab-btn:not(.active) .count {
+    background: var(--surface2);
+    color: var(--muted);
+  }
+
+  /* ── Stats row ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .stat-value.danger { color: var(--danger); }
+  .stat-value.warning { color: var(--warning); }
+  .stat-value.success { color: var(--success); }
+  .stat-value.info { color: var(--info); }
+
+  /* ── Issues table ── */
+  .issues-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .issues-table th {
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
+  }
+  .issues-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .issues-table tr:last-child td { border-bottom: none; }
+  .issues-table tr:hover td { background: var(--surface2); }
+
+  .issue-key {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .issue-key:hover { text-decoration: underline; }
+  .issue-summary { color: var(--text); max-width: 380px; }
+  .issue-summary a { color: inherit; text-decoration: none; }
+  .issue-summary a:hover { color: var(--accent); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .badge-todo    { background: #1e293b; color: #94a3b8; }
+  .badge-inprog  { background: #1e3a5f; color: #60a5fa; }
+  .badge-done    { background: #14532d; color: #4ade80; }
+  .badge-other   { background: #3b1f5e; color: #c084fc; }
+
+  [data-theme="light"] .badge-todo   { background: #e2e8f0; color: #475569; }
+  [data-theme="light"] .badge-inprog { background: #dbeafe; color: #1d4ed8; }
+  [data-theme="light"] .badge-done   { background: #dcfce7; color: #15803d; }
+  [data-theme="light"] .badge-other  { background: #f3e8ff; color: #7e22ce; }
+
+  .priority-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+  .p-highest, .p-blocker { background: #ef4444; }
+  .p-high    { background: #f97316; }
+  .p-medium  { background: #eab308; }
+  .p-low     { background: #3b82f6; }
+  .p-lowest  { background: #6b7280; }
+
+  /* ── Table container ── */
+  .table-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-title { font-size: 13px; font-weight: 600; }
+  .table-meta  { font-size: 12px; color: var(--muted); }
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied { border-color: var(--success); color: var(--success); }
+
+  /* ── Last comment toggle ── */
+  .comment-toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .toggle-switch {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 18px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-track { background: var(--accent); }
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-track::after { transform: translateX(14px); }
+
+  .comment-row td {
+    background: var(--surface2);
+    padding: 8px 12px 10px 32px;
+    font-size: 12px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+  .comment-meta {
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 3px;
+  }
+  .comment-body {
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .comment-none { color: var(--muted); font-style: italic; }
+
+  /* ── Version footer ── */
+  #version-tag {
+    display: block;
+    text-align: right;
+    padding: 16px 16px 8px;
+    font-size: 10px;
+    color: var(--muted);
+    opacity: 0.4;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ── Loading / empty ── */
+  .loading, .empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-bottom: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Age chip ── */
+  .age-chip {
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .age-chip.old { color: var(--danger); }
+  .age-chip.stale { color: var(--warning); }
+
+  #app { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">engageware<span>/</span>csm</div>
+  <div id="header-right">
+    <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode">🌙</button>
+    <button id="auth-btn" onclick="startAuth()">Connect to Jira</button>
+  </div>
+</header>
+
+<main>
+  <!-- Auth screen -->
+  <div id="auth-screen">
+    <h2>CSM Dashboard</h2>
+    <p>Connect your Jira account to view live customer data across all projects.</p>
+    <button class="connect-btn" onclick="startAuth()">Connect to Jira →</button>
+  </div>
+
+  <!-- App (shown after auth) -->
+  <div id="app">
+    <!-- Customer picker -->
+    <div id="picker-row">
+      <div id="customer-dropdown" style="flex:1; position:relative;">
+        <input id="customer-search" type="text" placeholder="Loading customers..." autocomplete="off" disabled />
+        <div id="dropdown-list"></div>
+      </div>
+      <div id="customer-badge">
+        <span id="badge-name"></span>
+        <button id="clear-customer" onclick="clearCustomer()" title="Clear">×</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row" style="display:none;">
+      <div class="stat-card">
+        <div class="stat-label">Open Support</div>
+        <div class="stat-value info" id="stat-support">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open Engineering</div>
+        <div class="stat-value info" id="stat-eng">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open OPS</div>
+        <div class="stat-value info" id="stat-ops">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Aging (14d+)</div>
+        <div class="stat-value danger" id="stat-aging">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Resolved (30d)</div>
+        <div class="stat-value success" id="stat-resolved">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Feature Requests</div>
+        <div class="stat-value warning" id="stat-fr">—</div>
+      </div>
+    </div>
+
+    <!-- Bucket tabs -->
+    <div class="bucket-tabs" id="bucket-tabs" style="display:none;">
+      <button class="tab-btn active" onclick="switchTab('support')"     id="tab-support">Support <span class="count" id="cnt-support">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('engineering')" id="tab-engineering">Engineering <span class="count" id="cnt-engineering">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('ops')"         id="tab-ops">OPS <span class="count" id="cnt-ops">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('aging')"       id="tab-aging">⚠ Aging <span class="count" id="cnt-aging">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('resolved')"    id="tab-resolved">✓ Resolved <span class="count" id="cnt-resolved">0</span></button>
+      <button class="tab-btn"        onclick="switchTab('fr')"          id="tab-fr">Feature Requests <span class="count" id="cnt-fr">0</span></button>
+    </div>
+
+    <!-- Issues panel -->
+    <div id="issues-panel"></div>
+  </div>
+</main>
+
+<script>
+// ── Preserve URL params before OAuth redirect wipes them ─────────────────────
+(function() {
+  var p = new URLSearchParams(window.location.search);
+  // Always overwrite — if URL has customer param use it, otherwise clear pending state
+  // This ensures a fresh URL always wins over stale sessionStorage
+  if (p.get('customer')) {
+    sessionStorage.setItem('ew_pending_customer', p.get('customer'));
+    if (p.get('tab')) sessionStorage.setItem('ew_pending_tab', p.get('tab'));
+    else              sessionStorage.removeItem('ew_pending_tab');
+  } else if (!p.get('code')) {
+    // Not an OAuth callback and no customer param — clear any stale pending state
+    sessionStorage.removeItem('ew_pending_customer');
+    sessionStorage.removeItem('ew_pending_tab');
+  }
+  // If it's an OAuth callback (?code=...), leave pending state alone — it was set on prior page load
+})();
+
+// ── Config ────────────────────────────────────────────────────────────────────
+const CLIENT_ID    = 'LmckYe4wFOygrvm4VEKmj0D6MTTP6Gjx';
+const REDIRECT_URI = 'https://wilso132.github.io/csm-engageware/';
+const WORKER_URL   = 'https://csm-token-exchange.mwilson-7a1.workers.dev';
+const WORKER_TOKEN = WORKER_URL + '/token';
+const WORKER_JIRA  = WORKER_URL + '/jira';
+function getJiraBase() { return ''; }
+
+async function resolveCloudId() {
+  // No longer needed — Jira calls go through Worker proxy with stored credentials
+  console.log('[CSM] Using Worker proxy for all Jira API calls');
+}
+const CUSTOMER_FIELD = 'cf[10100]';
+
+const SUPPORT_PROJECTS     = ['ASC','SCS','ACSC','TCST','AIC','AMXE'];
+const ENGINEERING_PROJECTS = ['AVS','AS','CORE','FLASH','GN','INTS','LIV','OUTB','PLT','SPID','UN','SEC','LEAR','PRD','ODSGI','IT','IC','ET','FR','LB'];
+const OPS_PROJECTS         = ['OPS'];
+const ALL_PROJECTS         = [...SUPPORT_PROJECTS, ...ENGINEERING_PROJECTS, ...OPS_PROJECTS];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let accessToken    = localStorage.getItem('ew_access_token');
+let allCustomers   = [];
+let selectedCustomer = null;
+let showComments = localStorage.getItem('ew_comments') === 'true';
+let currentTab     = 'support';
+let issueCache     = {};
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function startAuth() {
+  const state = Math.random().toString(36).slice(2);
+  localStorage.setItem('ew_oauth_state', state);
+  const params = new URLSearchParams({
+    audience:      'api.atlassian.com',
+    client_id:     CLIENT_ID,
+    scope:         'read:jira-work read:jira-user offline_access',
+    redirect_uri:  REDIRECT_URI,
+    state,
+    response_type: 'code',
+    prompt:        'consent',
+  });
+  window.location = 'https://auth.atlassian.com/authorize?' + params;
+}
+
+function logout() {
+  localStorage.removeItem('ew_access_token');
+  localStorage.removeItem('ew_refresh_token');
+  localStorage.removeItem('ew_oauth_state');
+  accessToken = null;
+  // Clear any OAuth params from URL so callback doesn't re-trigger
+  window.history.replaceState({}, '', window.location.pathname);
+  showAuthScreen();
+}
+
+async function handleCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code   = params.get('code');
+  const state  = params.get('state');
+  if (!code) return false;
+
+  // Clear URL immediately so the code isn't reused
+  window.history.replaceState({}, '', window.location.pathname);
+
+  // Show loading state
+  document.getElementById('auth-screen').innerHTML = `
+    <h2>Connecting to Jira…</h2>
+    <p style="color:var(--muted)">Exchanging authorization code for access token.</p>
+    <div class="spinner" style="margin:1rem auto;display:block;"></div>`;
+
+  try {
+    const r = await fetch(WORKER_TOKEN, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }), // sent to WORKER_TOKEN
+    });
+    const data = await r.json();
+    if (data.access_token) {
+      accessToken = data.access_token;
+      localStorage.setItem('ew_access_token', accessToken);
+      if (data.refresh_token) {
+        localStorage.setItem('ew_refresh_token', data.refresh_token);
+      }
+      // Fetch the correct cloud ID for this token
+      try {
+        await resolveCloudId();
+      } catch(cloudErr) {
+        document.getElementById('auth-screen').innerHTML = `
+          <h2>Site access error</h2>
+          <p style="color:var(--danger);margin-bottom:1rem;">${cloudErr.message}</p>
+          <p style="color:var(--muted);font-size:13px;margin-bottom:1rem;">
+            The OAuth app may not be authorized for the Engageware Jira site yet.
+            Try signing in again — on the Atlassian screen, make sure to select the Engageware site.
+          </p>
+          <button class="connect-btn" onclick="startAuth()">Try again →</button>`;
+        return false;
+      }
+      return true;
+    } else {
+      throw new Error(data.error_description || 'No access token returned');
+    }
+  } catch(e) {
+    document.getElementById('auth-screen').innerHTML = `
+      <h2>Connection failed</h2>
+      <p style="color:var(--danger);margin-bottom:1rem;">${e.message}</p>
+      <button class="connect-btn" onclick="startAuth()">Try again →</button>`;
+    return false;
+  }
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function jiraFetch(path, params = {}) {
+  // Use POST for issue searches to avoid JQL encoding issues
+  // Use GET for everything else
+  if (path === '/rest/api/3/issue/search') {
+    const r = await fetch(WORKER_URL + '/jira/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(params),
+    });
+    if (!r.ok) {
+      const txt = await r.text();
+      console.error('[CSM] Search error', r.status, txt.slice(0, 200));
+      throw new Error(`Jira API error ${r.status}`);
+    }
+    return r.json();
+  }
+
+  // GET for all other endpoints
+  const url = new URL(WORKER_URL + '/jira' + path);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const r = await fetch(url.toString());
+  if (!r.ok) {
+    const txt = await r.text();
+    console.error('[CSM] API error', r.status, path, txt.slice(0, 200));
+    throw new Error(`Jira API error ${r.status}`);
+  }
+  return r.json();
+}
+
+
+
+async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate,comment', maxResults = 100) {
+  // search/jql uses nextPageToken pagination, not startAt
+  const allIssues = [];
+  let nextPageToken = null;
+  do {
+    const params = { jql, fields, maxResults };
+    if (nextPageToken) params.nextPageToken = nextPageToken;
+    const data = await jiraFetch('/rest/api/3/issue/search', params);
+    const issues = data.issues || [];
+    allIssues.push(...issues);
+    nextPageToken = data.nextPageToken || null;
+    if (issues.length < maxResults) break;
+  } while (nextPageToken);
+  return allIssues;
+}
+
+// ── Customer list ─────────────────────────────────────────────────────────────
+async function loadCustomers() {
+  // Use field context options API — no JQL, no issue search, just the field definition
+  try {
+    const ctxData = await jiraFetch('/rest/api/3/field/customfield_10100/context', { maxResults: 50 });
+    const contexts = ctxData.values || [];
+    for (const ctx of contexts) {
+      let startAt = 0;
+      while (true) {
+        const opts = await jiraFetch(
+          `/rest/api/3/field/customfield_10100/context/${ctx.id}/option`,
+          { maxResults: 100, startAt }
+        );
+        const values = opts.values || [];
+        values.forEach(o => { if (o.value) allCustomers.push(o.value); });
+        if (opts.isLast || values.length === 0) break;
+        startAt += values.length;
+      }
+    }
+    allCustomers = [...new Set(allCustomers)].sort();
+    console.log(`[CSM] Loaded ${allCustomers.length} customers from field options`);
+  } catch(e) {
+    console.error('[CSM] Failed to load customers:', e);
+  }
+  setupSearch();
+}
+
+// ── Search / dropdown ─────────────────────────────────────────────────────────
+function setupSearch() {
+  const input = document.getElementById('customer-search');
+  const list  = document.getElementById('dropdown-list');
+
+  // Enable the input now that customers are loaded
+  input.disabled = false;
+  input.placeholder = 'Search customers...';
+
+  input.addEventListener('input', () => {
+    const q = input.value.toLowerCase();
+    const matches = allCustomers.filter(c => c.toLowerCase().includes(q)).slice(0, 50);
+    renderDropdown(matches);
+    list.classList.toggle('open', matches.length > 0 && q.length > 0);
+  });
+
+  input.addEventListener('focus', () => {
+    if (input.value.length > 0) list.classList.add('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (!document.getElementById('customer-dropdown').contains(e.target))
+      list.classList.remove('open');
+  });
+
+  // URL params (saved to sessionStorage before OAuth) take priority over localStorage
+  const urlCustomer   = sessionStorage.getItem('ew_pending_customer');
+  const urlTab        = sessionStorage.getItem('ew_pending_tab');
+  if (urlCustomer) { sessionStorage.removeItem('ew_pending_customer'); }
+  if (urlTab)      { sessionStorage.removeItem('ew_pending_tab'); }
+  const savedCustomer = urlCustomer || localStorage.getItem('ew_customer');
+  const savedTab      = urlTab      || localStorage.getItem('ew_tab');
+  if (savedCustomer && allCustomers.includes(savedCustomer)) {
+    currentTab = savedTab || 'support';
+    selectCustomer(savedCustomer);
+    // Make sure the right tab is highlighted
+    if (savedTab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const tabEl = document.getElementById(`tab-${savedTab}`);
+      if (tabEl) tabEl.classList.add('active');
+    }
+  }
+}
+
+function renderDropdown(customers) {
+  const list = document.getElementById('dropdown-list');
+  list.innerHTML = customers.map(c =>
+    `<div class="dropdown-item" onclick="selectCustomer('${c.replace(/'/g,"\\'")}')">
+       ${c}
+     </div>`
+  ).join('');
+}
+
+function selectCustomer(name) {
+  selectedCustomer = name;
+  issueCache = {};
+  document.getElementById('customer-search').value = '';
+  document.getElementById('dropdown-list').classList.remove('open');
+  document.getElementById('badge-name').textContent = name;
+  document.getElementById('customer-badge').classList.add('visible');
+  document.getElementById('stats-row').style.display = 'grid';
+  document.getElementById('bucket-tabs').style.display = 'flex';
+  localStorage.setItem('ew_customer', name);
+  updateURL();
+  loadAllBuckets();
+}
+
+function clearCustomer() {
+  selectedCustomer = null;
+  issueCache = {};
+  localStorage.removeItem('ew_customer');
+  localStorage.removeItem('ew_tab');
+  document.getElementById('customer-badge').classList.remove('visible');
+  document.getElementById('stats-row').style.display = 'none';
+  document.getElementById('bucket-tabs').style.display = 'none';
+  document.getElementById('issues-panel').innerHTML = '';
+  document.getElementById('customer-search').value = '';
+  window.history.replaceState({}, '', window.location.pathname);
+}
+
+// ── JQL builders ─────────────────────────────────────────────────────────────
+function jqlProjects(projects) {
+  return '(' + projects.map(p => `"${p}"`).join(', ') + ')';
+}
+
+function customerJql(customer) {
+  return `${CUSTOMER_FIELD} = "${customer}"`;
+}
+
+const BUCKETS = {
+  support: c => `project in ${jqlProjects(SUPPORT_PROJECTS)} AND ${customerJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
+  engineering: c => `project in ${jqlProjects(ENGINEERING_PROJECTS)} AND ${customerJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
+  ops: c => `project in ${jqlProjects(OPS_PROJECTS)} AND ${customerJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
+  aging: c => `project in ${jqlProjects([...SUPPORT_PROJECTS,...OPS_PROJECTS])} AND ${customerJql(c)} AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC`,
+  resolved: c => `project in ${jqlProjects(ALL_PROJECTS)} AND ${customerJql(c)} AND statusCategory = Done AND resolved >= "-30d" ORDER BY resolutiondate DESC`,
+  fr: c => `project in ("FR","PRD") AND ${customerJql(c)} ORDER BY statusCategory ASC, priority ASC`,
+};
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function loadAllBuckets() {
+  const c = selectedCustomer;
+  const keys = Object.keys(BUCKETS);
+
+  // Reset stats
+  keys.forEach(k => {
+    const el = document.getElementById(`stat-${k === 'engineering' ? 'eng' : k}`);
+    if (el) el.textContent = '…';
+  });
+
+  // Load all in parallel
+  await Promise.all(keys.map(async key => {
+    try {
+      const issues = await searchIssues(BUCKETS[key](c));
+      issueCache[key] = issues;
+      updateCount(key, issues.length);
+    } catch(e) {
+      issueCache[key] = [];
+      updateCount(key, '!');
+    }
+  }));
+
+  renderTab(currentTab);
+}
+
+function updateCount(key, count) {
+  const statMap = { support:'support', engineering:'eng', ops:'ops', aging:'aging', resolved:'resolved', fr:'fr' };
+  const statEl  = document.getElementById(`stat-${statMap[key]}`);
+  const cntEl   = document.getElementById(`cnt-${key}`);
+  if (statEl) statEl.textContent = count;
+  if (cntEl)  cntEl.textContent  = count;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  localStorage.setItem('ew_tab', tab);
+  updateURL();
+  renderTab(tab);
+}
+
+function renderTab(tab) {
+  const panel  = document.getElementById('issues-panel');
+  const issues = issueCache[tab];
+
+  if (!issues) {
+    panel.innerHTML = `<div class="table-container"><div class="loading"><div class="spinner"></div><br>Loading…</div></div>`;
+    return;
+  }
+  if (!issues.length) {
+    panel.innerHTML = `<div class="table-container"><div class="empty">No issues found.</div></div>`;
+    return;
+  }
+
+  const TITLES = {
+    support:     'Support – Open Tickets',
+    engineering: 'Engineering – Open Issues',
+    ops:         'OPS – Open Tickets',
+    aging:       'Aging – No update in 14+ days',
+    resolved:    'Resolved – Last 30 days',
+    fr:          'Feature Requests',
+  };
+
+  panel.innerHTML = `
+    <div class="table-container">
+      <div class="table-header">
+        <span class="table-title">${TITLES[tab]}</span>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="table-meta">${issues.length} issue${issues.length !== 1 ? 's' : ''}</span>
+          <label class="comment-toggle-wrap" title="Show last comment for each ticket">
+            <span>Last Comment</span>
+            <span class="toggle-switch">
+              <input type="checkbox" id="comment-toggle" ${showComments ? 'checked' : ''}>
+              <span class="toggle-track"></span>
+            </span>
+          </label>
+          <button class="copy-btn" id="copy-btn-${tab}" title="Copy table to clipboard">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+      <table class="issues-table">
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Summary</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Assignee</th>
+            <th>${tab === 'resolved' ? 'Resolved' : 'Updated'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${issues.map(i => renderRow(i, tab)).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  // Wire up copy button after DOM insertion
+  const copyBtn = document.getElementById('copy-btn-' + tab);
+  if (copyBtn) copyBtn.addEventListener('click', () => copyTable(copyBtn, tab));
+
+  // Wire up comment toggle
+  const toggle = document.getElementById('comment-toggle');
+  if (toggle) {
+    toggle.addEventListener('change', function() {
+      showComments = this.checked;
+      localStorage.setItem('ew_comments', showComments);
+      renderTab(currentTab);
+    });
+  }
+}
+
+function renderRow(issue, tab) {
+  const f         = issue.fields;
+  const key       = issue.key;
+  const summary   = f.summary || '';
+  const status    = f.status?.name || '';
+  const statusCat = f.status?.statusCategory?.key || '';
+  const priority  = f.priority?.name || '';
+  const assignee  = f.assignee?.displayName || '—';
+  const updated   = f.updated || f.resolutiondate || f.created || '';
+  const url       = `https://engageware.atlassian.net/browse/${key}`;
+
+  const statusBadge = (() => {
+    if (statusCat === 'new')           return `<span class="badge badge-todo">${status}</span>`;
+    if (statusCat === 'indeterminate') return `<span class="badge badge-inprog">${status}</span>`;
+    if (statusCat === 'done')          return `<span class="badge badge-done">${status}</span>`;
+    return `<span class="badge badge-other">${status}</span>`;
+  })();
+
+  const prioClass = (() => {
+    const p = priority.toLowerCase();
+    if (p.includes('highest') || p.includes('blocker')) return 'p-highest';
+    if (p.includes('high'))   return 'p-high';
+    if (p.includes('medium')) return 'p-medium';
+    if (p.includes('low') && !p.includes('lowest')) return 'p-low';
+    return 'p-lowest';
+  })();
+
+  const ageStr  = updated ? formatAge(updated, tab) : '';
+
+  return `<tr>
+    <td><a class="issue-key" href="${url}" target="_blank">${key}</a></td>
+    <td class="issue-summary"><a href="${url}" target="_blank">${escHtml(summary)}</a></td>
+    <td>${statusBadge}</td>
+    <td><span class="priority-dot ${prioClass}"></span>${priority}</td>
+    <td style="font-size:12px;color:var(--muted)">${escHtml(assignee)}</td>
+    <td>${ageStr}</td>
+  </tr>`;
+}
+
+function formatAge(dateStr, tab) {
+  const d    = new Date(dateStr);
+  const days = Math.floor((Date.now() - d) / 86400000);
+  const cls  = days >= 30 ? 'old' : days >= 14 ? 'stale' : '';
+  const label = tab === 'resolved'
+    ? d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })
+    : days === 0 ? 'Today' : days === 1 ? '1d ago' : `${days}d ago`;
+  return `<span class="age-chip ${cls}">${label}</span>`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function showAuthScreen() {
+  // URL params already saved to sessionStorage at page load
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-btn').textContent = 'Connect to Jira';
+  document.getElementById('auth-btn').onclick = startAuth;
+}
+
+async function initApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('auth-btn').textContent = 'Sign out';
+  document.getElementById('auth-btn').onclick = logout;
+  document.getElementById('auth-btn').className = 'secondary';
+  await loadCustomers();
+  // setupSearch() handles restoring customer from sessionStorage/localStorage
+}
+
+async function init() {
+  // If already have a token, just init the app — don't process callback
+  if (accessToken) {
+    // Don't wipe the URL — let initApp restore it
+    await initApp();
+    return;
+  }
+
+  // Handle OAuth callback only if no token yet
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('code')) {
+    const ok = await handleCallback();
+    if (ok) await initApp();
+    return;
+  }
+
+  showAuthScreen();
+}
+
+// ── Copy table ────────────────────────────────────────────────────────────────
+function copyTable(btn, tab) {
+  const issues = issueCache[tab];
+  if (!issues || !issues.length) return;
+
+  const dateCol = tab === 'resolved' ? 'Resolved' : 'Updated';
+  const headers = ['Key', 'Summary', 'Status', 'Priority', 'Assignee', dateCol];
+
+  const rows = issues.map(function(issue) {
+    const f = issue.fields;
+    const updated = f.updated || f.resolutiondate || f.created || '';
+    const date = updated ? new Date(updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    return [
+      issue.key,
+      (f.summary || '').split(String.fromCharCode(9)).join(' ').split(String.fromCharCode(10)).join(' '),
+      f.status && f.status.name ? f.status.name : '',
+      f.priority && f.priority.name ? f.priority.name : '',
+      f.assignee && f.assignee.displayName ? f.assignee.displayName : '',
+      date,
+    ];
+  });
+
+  // Build HTML table for PowerPoint/Word/Excel paste
+  var htmlTable = '<table><thead><tr>' +
+    headers.map(function(h) { return '<th>' + h + '</th>'; }).join('') +
+    '</tr></thead><tbody>' +
+    rows.map(function(r) {
+      return '<tr>' + r.map(function(c) {
+        return '<td>' + String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</td>';
+      }).join('') + '</tr>';
+    }).join('') +
+    '</tbody></table>';
+
+  // Write both HTML and plain text to clipboard
+  // HTML paste lands as a proper table in PowerPoint, Word, Excel
+  var TAB = String.fromCharCode(9);
+  var NL  = String.fromCharCode(10);
+  var tsv = [headers].concat(rows).map(function(r) { return r.join(TAB); }).join(NL);
+
+  var success = function() {
+    btn.classList.add('copied');
+    btn.textContent = 'Copied!';
+    setTimeout(function() {
+      btn.classList.remove('copied');
+      btn.textContent = 'Copy';
+    }, 2000);
+  };
+
+  try {
+    var item = new ClipboardItem({
+      'text/html':  new Blob([htmlTable], { type: 'text/html' }),
+      'text/plain': new Blob([tsv],       { type: 'text/plain' }),
+    });
+    navigator.clipboard.write([item]).then(success);
+  } catch(e) {
+    // Fallback for browsers that don't support ClipboardItem
+    navigator.clipboard.writeText(tsv).then(success);
+  }
+}
+
+// ── URL state ─────────────────────────────────────────────────────────────────
+function updateURL() {
+  const params = new URLSearchParams();
+  if (selectedCustomer) params.set('customer', selectedCustomer);
+  if (currentTab && currentTab !== 'support') params.set('tab', currentTab);
+  const qs = params.toString();
+  window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
+}
+
+function restoreFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const customer = params.get('customer');
+  const tab = params.get('tab');
+  if (customer && allCustomers.includes(customer)) {
+    selectCustomer(customer);
+    if (tab) {
+      // Switch to the right tab after buckets load
+      setTimeout(() => {
+        const btn = document.getElementById(`tab-${tab}`);
+        if (btn) btn.click();
+      }, 500);
+    }
+  }
+}
+
+init();
+
+// ── Theme toggle ───────────────────────────────────────────────────────────
+(function() {
+  const btn = document.getElementById('theme-toggle');
+  const saved = localStorage.getItem('ew_theme') || 'dark';
+  applyTheme(saved);
+
+  btn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem('ew_theme', next);
+  });
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+})();
+</script>
+<div id="version-tag">v1.0602.1338</div>
+</body>
+</html>
