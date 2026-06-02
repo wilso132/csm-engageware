@@ -806,7 +806,7 @@ function renderTab(tab) {
         <span class="table-title">${TITLES[tab]}</span>
         <div style="display:flex;align-items:center;gap:12px;">
           <span class="table-meta">${issues.length} issue${issues.length !== 1 ? 's' : ''}</span>
-          <button class="copy-btn" onclick="copyTable(this, '${tab}')" title="Copy table to clipboard">
+          <button class="copy-btn" id="copy-btn-${tab}" title="Copy table to clipboard">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             Copy
           </button>
@@ -828,6 +828,10 @@ function renderTab(tab) {
         </tbody>
       </table>
     </div>`;
+
+  // Wire up copy button after DOM insertion
+  const copyBtn = document.getElementById('copy-btn-' + tab);
+  if (copyBtn) copyBtn.addEventListener('click', () => copyTable(copyBtn, tab));
 }
 
 function renderRow(issue, tab) {
@@ -949,29 +953,31 @@ function copyTable(btn, tab) {
   const dateCol = tab === 'resolved' ? 'Resolved' : 'Updated';
   const headers = ['Key', 'Summary', 'Status', 'Priority', 'Assignee', dateCol];
 
-  const rows = issues.map(issue => {
+  const rows = issues.map(function(issue) {
     const f = issue.fields;
     const updated = f.updated || f.resolutiondate || f.created || '';
     const date = updated ? new Date(updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
     return [
       issue.key,
-      (f.summary || '').replace(/	/g, ' '),
-      f.status?.name || '',
-      f.priority?.name || '',
-      f.assignee?.displayName || '',
+      (f.summary || '').replace(/[	
+]/g, ' '),
+      f.status && f.status.name ? f.status.name : '',
+      f.priority && f.priority.name ? f.priority.name : '',
+      f.assignee && f.assignee.displayName ? f.assignee.displayName : '',
       date,
     ];
   });
 
-  const tsv = [headers, ...rows].map(r => r.join('	')).join('
-');
+  const TAB = String.fromCharCode(9);
+  const NL  = String.fromCharCode(10);
+  const tsv = [headers].concat(rows).map(function(r) { return r.join(TAB); }).join(NL);
 
-  navigator.clipboard.writeText(tsv).then(() => {
+  navigator.clipboard.writeText(tsv).then(function() {
     btn.classList.add('copied');
-    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
-    setTimeout(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(function() {
       btn.classList.remove('copied');
-      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+      btn.textContent = 'Copy';
     }, 2000);
   });
 }
