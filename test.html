@@ -667,6 +667,17 @@
       <button class="tab-btn"        onclick="switchTab('aging')"       id="tab-aging">⚠ Aging <span class="count" id="cnt-aging">0</span></button>
       <button class="tab-btn"        onclick="switchTab('resolved')"    id="tab-resolved">✓ Resolved <span class="count" id="cnt-resolved">0</span></button>
       <button class="tab-btn"        onclick="switchTab('fr')"          id="tab-fr">Feature Requests <span class="count" id="cnt-fr">0</span></button>
+      <div class="resolved-slider-wrap" id="resolved-slider-wrap" style="display:none;">
+        <span data-i18n="resolved_label">Resolved:</span>
+        <div id="resolved-day-btns" style="display:flex;gap:3px;">
+          <button class="resolved-day-btn" data-days="7">7d</button>
+          <button class="resolved-day-btn" data-days="14">14d</button>
+          <button class="resolved-day-btn active" data-days="30">30d</button>
+          <button class="resolved-day-btn" data-days="60">60d</button>
+          <button class="resolved-day-btn" data-days="90">90d</button>
+          <button class="resolved-day-btn" data-days="365">1y</button>
+        </div>
+      </div>
     </div>
 
     <!-- Issues panel -->
@@ -1035,7 +1046,7 @@ async function jiraFetch(path, params = {}) {
 
 
 
-async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate,comment,customfield_12284', maxResults = 100) {
+async function searchIssues(jql, fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate,comment,customfield_12284,customfield_10100', maxResults = 100) {
   // search/jql uses nextPageToken pagination, not startAt
   const allIssues = [];
   let nextPageToken = null;
@@ -1192,7 +1203,10 @@ function renderDropdown(customers) {
 function selectCustomer(name) {
   selectedCustomer = name;
   selectedOrg = null;
+  activePreset = '';
   localStorage.removeItem('ew_org');
+  localStorage.removeItem('ew_preset');
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   localStorage.removeItem('ew_product_filter');
   sessionStorage.removeItem('ew_product_filter');
   activeProductFilter = '';
@@ -1229,7 +1243,10 @@ function clearCustomer() {
 function selectOrg(name) {
   selectedOrg = name;
   selectedCustomer = null;
+  activePreset = '';
   localStorage.removeItem('ew_customer');
+  localStorage.removeItem('ew_preset');
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   issueCache = {};
   document.getElementById('org-search').value = '';
   document.getElementById('org-dropdown-list').classList.remove('open');
@@ -1267,7 +1284,7 @@ const BUCKETS = {
   engineering: c => `project in ${jqlProjects(ENGINEERING_PROJECTS)} AND ${makeJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
   ops: c => `project in ${jqlProjects(OPS_PROJECTS)} AND ${makeJql(c)} AND statusCategory != Done ORDER BY priority ASC, created ASC`,
   aging: c => `project in ${jqlProjects([...SUPPORT_PROJECTS,...OPS_PROJECTS])} AND ${makeJql(c)} AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC`,
-  resolved: c => `project in ${jqlProjects(ALL_PROJECTS)} AND ${makeJql(c)} AND statusCategory = Done AND resolved >= "-${resolvedDays}d" ORDER BY resolutiondate DESC`,
+  resolved: c => `project in ${jqlProjects(ALL_PROJECTS)} AND ${makeJql(c)} AND statusCategory = Done AND resolved >= "-365d" ORDER BY resolutiondate DESC`,
   fr: c => `project in ("FR","PRD") AND ${makeJql(c)} ORDER BY statusCategory ASC, priority ASC`,
 };
 
@@ -1293,6 +1310,22 @@ async function loadAllBuckets() {
       updateCount(key, '!');
     }
   }));
+
+  // Update product filter bar now that all buckets are loaded
+  updateProductFilterBar(currentTab);
+
+  // Update resolved stat tile to reflect current day filter
+  if (issueCache['resolved']) {
+    const cutoff = Date.now() - resolvedDays * 86400000;
+    const filteredCount = issueCache['resolved'].filter(i => {
+      const d = i.fields.resolutiondate || i.fields.updated;
+      return d && new Date(d).getTime() >= cutoff;
+    }).length;
+    const el = document.getElementById('stat-resolved');
+    if (el) el.textContent = filteredCount;
+    const cnt = document.getElementById('cnt-resolved');
+    if (cnt) cnt.textContent = filteredCount;
+  }
 
   renderTab(currentTab);
 }
@@ -1320,22 +1353,25 @@ function switchTab(tab) {
 
 function updateProductFilterBar(tab) {
   const bar = document.getElementById('product-filter-bar');
-  const issues = issueCache[tab] || [];
+  // Gather products from ALL loaded buckets, not just current tab
   const products = new Set();
-  issues.forEach(i => {
-    (i.fields.customfield_12284 || []).forEach(p => products.add(p.value));
+  Object.values(issueCache).forEach(issues => {
+    if (!issues) return;
+    issues.forEach(i => {
+      (i.fields.customfield_12284 || []).forEach(p => products.add(p.value));
+    });
   });
   if (products.size === 0) { bar.classList.remove('visible'); return; }
   bar.classList.add('visible');
   let html = '<span class="prod-filter-label">' + t('filter_by_product') + '</span>';
   html += '<button class="prod-filter-btn' + (activeProductFilter === '' ? ' active' : '') + '" data-product="" data-tab="' + escHtml(tab) + '">' + t('all_products') + '</button>';
-  [...products].sort().forEach(p => {
+  Array.from(products).sort().forEach(p => {
     html += '<button class="prod-filter-btn' + (activeProductFilter === p ? ' active' : '') + '" data-product="' + escHtml(p) + '" data-tab="' + escHtml(tab) + '">' + escHtml(p) + '</button>';
   });
   bar.innerHTML = html;
   bar.querySelectorAll('.prod-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      setProductFilter(btn.getAttribute('data-product'), btn.getAttribute('data-tab'));
+      setProductFilter(btn.getAttribute('data-product'), tab);
     });
   });
 }
@@ -1370,10 +1406,21 @@ function renderTab(tab) {
     fr:          'Feature Requests',
   };
 
+  // For resolved tab, filter client-side by resolvedDays (we always fetch 365d)
+  const resolvedCutoff = tab === 'resolved'
+    ? Date.now() - resolvedDays * 86400000
+    : null;
+  const dayFiltered = resolvedCutoff
+    ? issues.filter(i => {
+        const d = i.fields.resolutiondate || i.fields.updated;
+        return d && new Date(d).getTime() >= resolvedCutoff;
+      })
+    : issues;
+
   // Apply product filter and update filter bar before building HTML
   const filteredIssues = activeProductFilter
-    ? issues.filter(i => (i.fields.customfield_12284 || []).some(p => p.value === activeProductFilter))
-    : issues;
+    ? dayFiltered.filter(i => (i.fields.customfield_12284 || []).some(p => p.value === activeProductFilter))
+    : dayFiltered;
   updateProductFilterBar(tab);
 
   panel.innerHTML = `
@@ -1476,6 +1523,10 @@ function renderRow(issue, tab) {
     }
   }
 
+  const customers  = (f.customfield_10100 || []).map(c => c.value).join(', ');
+  const createdStr = f.created ? new Date(f.created).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+  const productList = (f.customfield_12284 || []).map(p => p.value);
+
   return `<tr>
     <td><a class="issue-key" href="${url}" target="_blank">${key}</a></td>
     <td class="issue-summary"><a href="${url}" target="_blank">${escHtml(summary)}</a></td>
@@ -1483,6 +1534,9 @@ function renderRow(issue, tab) {
     <td><span class="priority-dot ${prioClass}"></span>${priority}</td>
     <td style="font-size:12px;color:var(--muted)">${escHtml(assignee)}</td>
     <td>${ageStr}</td>
+    ${activePreset ? `<td style="font-size:11px;color:var(--muted)">${escHtml(customers)}</td>` : ''}
+    <td style="font-size:11px;color:var(--muted)">${escHtml(createdStr)}</td>
+    <td>${productList.length ? `<div class="product-badges">${productList.map(p=>`<span class="prod-badge">${escHtml(p)}</span>`).join('')}</div>` : ''}</td>
   </tr>${commentRow}`;
 }
 
@@ -1544,8 +1598,8 @@ async function initApp() {
       document.querySelectorAll('.resolved-day-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       updateURL();
-      issueCache['resolved'] = null;
-      loadAllBuckets();
+      // Just re-render — client-side filter handles the day window
+      if (currentTab === 'resolved') renderTab('resolved');
     });
   });
   restoreFromState();
@@ -1840,6 +1894,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.2329</div>
+<div id="version-tag">v1.0602.2335</div>
 </body>
 </html>
