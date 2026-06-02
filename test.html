@@ -598,10 +598,10 @@
     <div id="preset-section">
       <div class="preset-section-label" data-i18n="preset_filters">Preset Filters</div>
       <div class="preset-buttons">
-        <button class="preset-btn" id="preset-t1-all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — All Open</button>
-        <button class="preset-btn" id="preset-t1-icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP</button>
-        <button class="preset-btn" id="preset-t1-nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP</button>
-        <button class="preset-btn" id="preset-t2-all"     onclick="loadPreset('t2-all')">    <span class="preset-spinner"></span>Tier 2 — All Open</button>
+        <button class="preset-btn" id="preset-t1-all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — All Open Tickets</button>
+        <button class="preset-btn" id="preset-t1-icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP (Open)</button>
+        <button class="preset-btn" id="preset-t1-nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP (Open)</button>
+        <button class="preset-btn" id="preset-t2-all"     onclick="loadPreset('t2-all')">    <span class="preset-spinner"></span>Tier 2 — All Open Tickets</button>
         <button class="preset-btn" id="preset-aging-all"  onclick="loadPreset('aging-all')"> <span class="preset-spinner"></span>All Aging (30D+)</button>
         <button class="preset-btn" id="preset-aging-90"   onclick="loadPreset('aging-90')">  <span class="preset-spinner"></span>All Aging (90D+)</button>
       </div>
@@ -1627,7 +1627,18 @@ async function init() {
 
 // ── Copy table ────────────────────────────────────────────────────────────────
 function copyTable(btn, tab) {
-  const issues = issueCache[tab];
+  // Use same filtering logic as renderTab
+  let issues = issueCache[tab] || [];
+  if (tab === 'resolved') {
+    const cutoff = Date.now() - resolvedDays * 86400000;
+    issues = issues.filter(i => {
+      const d = i.fields.resolutiondate || i.fields.updated;
+      return d && new Date(d).getTime() >= cutoff;
+    });
+  }
+  if (activeProductFilter) {
+    issues = issues.filter(i => (i.fields.customfield_12284 || []).some(p => p.value === activeProductFilter));
+  }
   if (!issues || !issues.length) return;
 
   const dateCol = tab === 'resolved' ? 'Resolved' : 'Updated';
@@ -1766,8 +1777,10 @@ async function loadPreset(key) {
   document.getElementById('customer-badge').classList.remove('visible');
   document.getElementById('customer-search').value = '';
   document.getElementById('org-search').value = '';
-  document.getElementById('stats-row').style.display = 'none';
+  document.getElementById('stats-row').style.display = 'grid';
   document.getElementById('bucket-tabs').style.display = 'flex';
+  // Reset all counts to loading state
+  ['support','engineering','ops','aging','resolved','fr'].forEach(function(k) { updateCount(k, '…'); });
   document.getElementById('issues-panel').innerHTML = '<div class="table-container"><div class="loading"><div class="spinner"></div><br>' + t('loading') + '</div></div>';
   updateURL();
 
@@ -1794,9 +1807,36 @@ async function loadPreset(key) {
       presetCache[key] = { issues: issues, ts: Date.now() };
       console.log('[CSM] Preset ' + key + ' from API (' + issues.length + ')');
     }
-    Object.keys(BUCKETS).forEach(function(k) { issueCache[k] = issues; });
-    updateCount('support', issues.length);
-    ['engineering','ops','aging','resolved','fr'].forEach(function(k) { updateCount(k, ''); });
+    // Populate each bucket by filtering the full result set
+    var open     = issues.filter(i => i.fields.status?.statusCategory?.key !== 'done');
+    var done     = issues.filter(i => i.fields.status?.statusCategory?.key === 'done');
+    var support  = open.filter(i => ['ASC','SCS','ACSC','TCST','AIC','AMXE'].includes(i.fields.project?.key));
+    var eng      = open.filter(i => ENGINEERING_PROJECTS.includes(i.fields.project?.key));
+    var ops      = open.filter(i => ['OPS'].includes(i.fields.project?.key));
+    var aging    = open.filter(i => {
+      const upd = i.fields.updated || i.fields.created;
+      return upd && (Date.now() - new Date(upd).getTime()) > 30 * 86400000;
+    });
+    var resolved = done.filter(i => {
+      const d = i.fields.resolutiondate || i.fields.updated;
+      return d && (Date.now() - new Date(d).getTime()) <= 365 * 86400000;
+    });
+    var fr       = issues.filter(i => ['FR','PRD'].includes(i.fields.project?.key));
+    issueCache['support']     = support;
+    issueCache['engineering'] = eng;
+    issueCache['ops']         = ops;
+    issueCache['aging']       = aging;
+    issueCache['resolved']    = resolved;
+    issueCache['fr']          = fr;
+    updateCount('support',     support.length);
+    updateCount('engineering', eng.length);
+    updateCount('ops',         ops.length);
+    updateCount('aging',       aging.length);
+    updateCount('resolved',    resolved.filter(i => {
+      const d = i.fields.resolutiondate || i.fields.updated;
+      return d && (Date.now() - new Date(d).getTime()) <= resolvedDays * 86400000;
+    }).length);
+    updateCount('fr',          fr.length);
     if (btn) btn.classList.remove('loading');
     currentTab = 'support';
     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
@@ -1902,6 +1942,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.2338</div>
+<div id="version-tag">v1.0602.2343</div>
 </body>
 </html>
