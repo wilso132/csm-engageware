@@ -407,25 +407,14 @@
 // ── Config ────────────────────────────────────────────────────────────────────
 const CLIENT_ID    = 'LmckYe4wFOygrvm4VEKmj0D6MTTP6Gjx';
 const REDIRECT_URI = 'https://wilso132.github.io/csm-engageware/';
-const WORKER_URL   = 'https://csm-token-exchange.mwilson-7a1.workers.dev/';
-let JIRA_BASE = localStorage.getItem('ew_jira_base') || 
-              'https://api.atlassian.com/ex/jira/884f99a4-d05f-496a-8a4c-ff1e2c2d2bc9';
-function getJiraBase() { return JIRA_BASE; }
+const WORKER_URL   = 'https://csm-token-exchange.mwilson-7a1.workers.dev';
+const WORKER_TOKEN = WORKER_URL + '/token';
+const WORKER_JIRA  = WORKER_URL + '/jira';
+function getJiraBase() { return ''; }
 
 async function resolveCloudId() {
-  const r = await fetch('https://api.atlassian.com/oauth/token/accessible-resources', {
-    headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
-  });
-  const text = await r.text();
-  console.log('[CSM] accessible-resources status:', r.status);
-  console.log('[CSM] accessible-resources response:', text);
-  if (!r.ok) throw new Error(`accessible-resources failed: ${r.status} ${text}`);
-  const sites = JSON.parse(text);
-  if (!sites.length) throw new Error('No Atlassian sites found for this token — OAuth app may not be authorized for any site');
-  const site = sites.find(s => s.url && s.url.includes('engageware')) || sites[0];
-  JIRA_BASE = `https://api.atlassian.com/ex/jira/${site.id}`;
-  localStorage.setItem('ew_jira_base', JIRA_BASE);
-  console.log('[CSM] Resolved JIRA_BASE:', JIRA_BASE);
+  // No longer needed — Jira calls go through Worker proxy with stored credentials
+  console.log('[CSM] Using Worker proxy for all Jira API calls');
 }
 const CUSTOMER_FIELD = 'cf[10100]';
 
@@ -461,7 +450,6 @@ function logout() {
   localStorage.removeItem('ew_access_token');
   localStorage.removeItem('ew_refresh_token');
   localStorage.removeItem('ew_oauth_state');
-  localStorage.removeItem('ew_jira_base');
   accessToken = null;
   // Clear any OAuth params from URL so callback doesn't re-trigger
   window.history.replaceState({}, '', window.location.pathname);
@@ -484,10 +472,10 @@ async function handleCallback() {
     <div class="spinner" style="margin:1rem auto;display:block;"></div>`;
 
   try {
-    const r = await fetch(WORKER_URL, {
+    const r = await fetch(WORKER_TOKEN, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
+      body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }), // sent to WORKER_TOKEN
     });
     const data = await r.json();
     if (data.access_token) {
@@ -525,20 +513,18 @@ async function handleCallback() {
 
 // ── API ───────────────────────────────────────────────────────────────────────
 async function jiraFetch(path, params = {}) {
-  const url = new URL(`${getJiraBase()}${path}`);
-  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+  // Route all Jira calls through the Cloudflare Worker proxy
+  // which uses a stored API token — no CORS, no OAuth scope issues
+  const url = new URL(WORKER_JIRA);
+  url.searchParams.set('path', path);
+  if (Object.keys(params).length) {
+    url.searchParams.set('params', JSON.stringify(params));
+  }
 
-  const r = await fetch(url, {
-    headers: {
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    }
-  });
-
-  if (r.status === 401) { logout(); throw new Error('Unauthorized'); }
+  const r = await fetch(url.toString());
   if (!r.ok) {
     const txt = await r.text();
-    console.error('[CSM] API error', r.status, url.toString(), txt.slice(0,200));
+    console.error('[CSM] API error', r.status, path, txt.slice(0, 200));
     throw new Error(`Jira API error ${r.status}`);
   }
   return r.json();
@@ -820,8 +806,7 @@ async function init() {
   if (accessToken) {
     window.history.replaceState({}, '', window.location.pathname);
     // Re-resolve cloud ID in case it changed
-    if (!localStorage.getItem('ew_jira_base')) await resolveCloudId();
-    await initApp();
+      await initApp();
     return;
   }
 
