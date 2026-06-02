@@ -598,11 +598,12 @@
     <div id="preset-section">
       <div class="preset-section-label" data-i18n="preset_filters">Preset Filters</div>
       <div class="preset-buttons">
-        <button class="preset-btn" id="preset-t1-all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — All Open</button>
-        <button class="preset-btn" id="preset-t1-icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP</button>
-        <button class="preset-btn" id="preset-t1-nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP</button>
-        <button class="preset-btn" id="preset-t2-all"     onclick="loadPreset('t2-all')">    <span class="preset-spinner"></span>Tier 2 — All Open</button>
-        <button class="preset-btn" id="preset-aging-all"  onclick="loadPreset('aging-all')"> <span class="preset-spinner"></span>All Aging (14D+)</button>
+        <button class="preset-btn" id="preset-t1-all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — Open (excl. Resolved)</button>
+        <button class="preset-btn" id="preset-t1-icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP (Open)</button>
+        <button class="preset-btn" id="preset-t1-nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP (Open)</button>
+        <button class="preset-btn" id="preset-t2-all"     onclick="loadPreset('t2-all')">    <span class="preset-spinner"></span>Tier 2 — Open (excl. Resolved)</button>
+        <button class="preset-btn" id="preset-aging-all"  onclick="loadPreset('aging-all')"> <span class="preset-spinner"></span>All Aging (30D+)</button>
+        <button class="preset-btn" id="preset-aging-90"   onclick="loadPreset('aging-90')">  <span class="preset-spinner"></span>All Aging (90D+)</button>
       </div>
     </div>
 
@@ -1356,6 +1357,7 @@ function renderTab(tab) {
   }
   if (!issues.length) {
     panel.innerHTML = `<div class="table-container"><div class="empty">${t('no_issues')}</div></div>`;
+    updateProductFilterBar(tab);
     return;
   }
 
@@ -1367,6 +1369,12 @@ function renderTab(tab) {
     resolved:    'Resolved – Last 30 days',
     fr:          'Feature Requests',
   };
+
+  // Apply product filter and update filter bar before building HTML
+  const filteredIssues = activeProductFilter
+    ? issues.filter(i => (i.fields.customfield_12284 || []).some(p => p.value === activeProductFilter))
+    : issues;
+  updateProductFilterBar(tab);
 
   panel.innerHTML = `
     <div class="table-container">
@@ -1664,7 +1672,8 @@ function getPresetQueries() {
     't1-icp':    'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 1" AND cf[13874] = "Yes" AND statusCategory != Done ORDER BY priority ASC, created ASC',
     't1-nonicp': 'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 1" AND cf[13874] = "No" AND statusCategory != Done ORDER BY priority ASC, created ASC',
     't2-all':    'project in ' + jqlProjects(ALL_PROJECTS) + ' AND cf[13703] = "Tier 2" AND statusCategory != Done ORDER BY priority ASC, created ASC',
-    'aging-all': 'project in ' + jqlProjects([...SUPPORT_PROJECTS, ...OPS_PROJECTS]) + ' AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC',
+    'aging-all': 'project in ' + jqlProjects([...SUPPORT_PROJECTS, ...OPS_PROJECTS]) + ' AND statusCategory != Done AND updated <= "-30d" ORDER BY updated ASC',
+    'aging-90':  'project in ' + jqlProjects([...SUPPORT_PROJECTS, ...OPS_PROJECTS]) + ' AND statusCategory != Done AND updated <= "-90d" ORDER BY updated ASC',
   };
 }
 
@@ -1831,6 +1840,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.2325</div>
+<div id="version-tag">v1.0602.2329</div>
 </body>
 </html>
