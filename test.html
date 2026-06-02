@@ -811,7 +811,9 @@ function jqlProjects(projects) {
 }
 
 function customerJql(customer) {
-  return `${CUSTOMER_FIELD} = "${customer}"`;
+  // Search both the customer field (cf[10100]) AND the JSM Organization field (cf[11300])
+  // so tickets tagged via either field are included
+  return `(${CUSTOMER_FIELD} = "${customer}" OR cf[11300] = "${customer}")`;
 }
 
 const BUCKETS = {
@@ -1180,6 +1182,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.1347</div>
+<div id="version-tag">v1.0602.1545</div>
 </body>
 </html>
