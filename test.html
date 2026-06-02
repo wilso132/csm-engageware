@@ -1430,7 +1430,9 @@ function updateURL() {
   window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
 }
 
-function restoreFromURL() {
+
+
+function restoreFromState() {
   const params = new URLSearchParams(window.location.search);
   const customer = params.get('customer');
   const tab = params.get('tab');
@@ -1468,6 +1470,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.1606</div>
+<div id="version-tag">v1.0602.1610</div>
 </body>
 </html>
