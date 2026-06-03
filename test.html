@@ -753,6 +753,9 @@
     <div id="product-filter-bar">
       <span class="prod-filter-label" data-i18n="filter_by_product">Filter by product:</span>
     </div>
+    <div id="priority-filter-bar" style="display:none; align-items:center; gap:6px; flex-wrap:wrap; padding:4px 0 0; font-size:12px;">
+      <span class="prod-filter-label" data-i18n="filter_by_priority">Filter by priority:</span>
+    </div>
     <div id="issues-panel"></div>
   </div>
 </main>
@@ -770,8 +773,10 @@
     else                   sessionStorage.removeItem('ew_pending_tab');
     if (p.get('resolved_days')) sessionStorage.setItem('ew_pending_resolved_days', p.get('resolved_days'));
     else                        sessionStorage.removeItem('ew_pending_resolved_days');
-    if (p.get('product')) { sessionStorage.setItem('ew_product_filter', p.get('product')); }
-    else                  { sessionStorage.removeItem('ew_product_filter'); }
+    if (p.get('product'))  { sessionStorage.setItem('ew_product_filter',  p.get('product')); }
+    else                   { sessionStorage.removeItem('ew_product_filter'); }
+    if (p.get('priority')) { sessionStorage.setItem('ew_priority_filter', p.get('priority')); }
+    else                   { sessionStorage.removeItem('ew_priority_filter'); }
     if (p.get('preset'))  { sessionStorage.setItem('ew_pending_preset', p.get('preset')); }
     else                  { sessionStorage.removeItem('ew_pending_preset'); }
   } else if (!p.get('code')) {
@@ -815,6 +820,7 @@ const I18N = {
     col_product:          'Product',
     resolved_label:       'Resolved:',
     filter_by_product:    'Filter by product:',
+    filter_by_priority:   'Filter by priority:',
     preset_filters:       'Preset Filters',
     preset_t1_all:        'Tier 1 — All Open Tickets',
     preset_t1_icp:        'Tier 1 — ICP (Open)',
@@ -869,6 +875,7 @@ const I18N = {
     col_product:          'Producto',
     resolved_label:       'Resueltos:',
     filter_by_product:    'Filtrar por producto:',
+    filter_by_priority:   'Filtrar por prioridad:',
     preset_filters:       'Filtros Predefinidos',
     preset_t1_all:        'Nivel 1 — Todos los Abiertos',
     preset_t1_icp:        'Nivel 1 — ICP (Abiertos)',
@@ -1016,7 +1023,8 @@ let allOrgs = [];
 let selectedOrg = null; // separate from selectedCustomer
 let resolvedDays = parseInt(localStorage.getItem('ew_resolved_days') || '30');
 let agingDays    = parseInt(localStorage.getItem('ew_aging_days')    || '30');
-let activeProductFilter = sessionStorage.getItem('ew_product_filter') || localStorage.getItem('ew_product_filter') || '';
+let activeProductFilter  = sessionStorage.getItem('ew_product_filter')  || localStorage.getItem('ew_product_filter')  || '';
+let activePriorityFilter = sessionStorage.getItem('ew_priority_filter') || localStorage.getItem('ew_priority_filter') || '';
 let activePreset = '';
 let presetCache = {}; // key -> {issues, ts}
 const PRESET_TTL = 30 * 60 * 1000; // 30 minutes
@@ -1302,7 +1310,10 @@ function selectCustomer(name) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   localStorage.removeItem('ew_product_filter');
   sessionStorage.removeItem('ew_product_filter');
-  activeProductFilter = '';
+  localStorage.removeItem('ew_priority_filter');
+  sessionStorage.removeItem('ew_priority_filter');
+  activeProductFilter  = '';
+  activePriorityFilter = '';
   issueCache = {};
   document.getElementById('customer-search').value = '';
   document.getElementById('org-search').value = '';
@@ -1404,8 +1415,9 @@ async function loadAllBuckets() {
     }
   }));
 
-  // Update product filter bar now that all buckets are loaded
+  // Update product + priority filter bars now that all buckets are loaded
   updateProductFilterBar(currentTab);
+  updatePriorityFilterBar(currentTab);
 
   // Update resolved stat tile to reflect current day filter
   if (issueCache['resolved']) {
@@ -1471,6 +1483,39 @@ function updateProductFilterBar(tab) {
     });
   });
 }
+function updatePriorityFilterBar(tab) {
+  const bar = document.getElementById('priority-filter-bar');
+  const issues = issueCache[tab] || [];
+  const priorities = new Set();
+  issues.forEach(i => { if (i.fields.priority?.name) priorities.add(i.fields.priority.name); });
+  if (priorities.size === 0) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const PRIO_ORDER = ['Critical','Highest','High','Medium','Low','Lowest','P1','P2','P3','P4'];
+  const sorted = Array.from(priorities).sort((a, b) => {
+    const ai = PRIO_ORDER.indexOf(a), bi = PRIO_ORDER.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1; if (bi === -1) return -1;
+    return ai - bi;
+  });
+  let html = '<span class="prod-filter-label">' + t('filter_by_priority') + '</span>';
+  html += '<button class="prod-filter-btn' + (activePriorityFilter === '' ? ' active' : '') + '" data-priority="" data-tab="' + escHtml(tab) + '">' + t('all_products') + '</button>';
+  sorted.forEach(p => {
+    html += '<button class="prod-filter-btn' + (activePriorityFilter === p ? ' active' : '') + '" data-priority="' + escHtml(p) + '" data-tab="' + escHtml(tab) + '">' + escHtml(p) + '</button>';
+  });
+  bar.innerHTML = html;
+  bar.querySelectorAll('.prod-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => setPriorityFilter(btn.getAttribute('data-priority'), tab));
+  });
+}
+
+function setPriorityFilter(priority, tab) {
+  activePriorityFilter = priority;
+  localStorage.setItem('ew_priority_filter', priority);
+  sessionStorage.setItem('ew_priority_filter', priority);
+  updateURL();
+  renderTab(tab || currentTab);
+}
+
 function setProductFilter(product, tab) {
   activeProductFilter = product;
   localStorage.setItem('ew_product_filter', product);
@@ -1513,11 +1558,15 @@ function renderTab(tab) {
       })
     : issues;
 
-  // Apply product filter and update filter bar before building HTML
-  const filteredIssues = activeProductFilter
+  // Apply product + priority filters
+  const productFiltered = activeProductFilter
     ? dayFiltered.filter(i => (i.fields.customfield_12284 || []).some(p => p.value === activeProductFilter))
     : dayFiltered;
+  const filteredIssues = activePriorityFilter
+    ? productFiltered.filter(i => i.fields.priority?.name === activePriorityFilter)
+    : productFiltered;
   updateProductFilterBar(tab);
+  updatePriorityFilterBar(tab);
 
   panel.innerHTML = `
     <div class="table-container">
@@ -1841,7 +1890,8 @@ function updateURL() {
   if (currentTab && currentTab !== 'support') params.set('tab', currentTab);
   if (resolvedDays !== 30) params.set('resolved_days', resolvedDays);
   if (agingDays !== 30)    params.set('aging_days', agingDays);
-  if (activeProductFilter) params.set('product', activeProductFilter);
+  if (activeProductFilter)  params.set('product', activeProductFilter);
+  if (activePriorityFilter) params.set('priority', activePriorityFilter);
   const qs = params.toString();
   window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
 }
@@ -2035,10 +2085,15 @@ function restoreFromState() {
   sessionStorage.removeItem('ew_pending_tab');
   sessionStorage.removeItem('ew_pending_resolved_days');
 
-  const urlProduct = sessionStorage.getItem('ew_product_filter');
+  const urlProduct  = sessionStorage.getItem('ew_product_filter');
   if (urlProduct !== null) {
     activeProductFilter = urlProduct;
     localStorage.setItem('ew_product_filter', urlProduct);
+  }
+  const urlPriority = sessionStorage.getItem('ew_priority_filter');
+  if (urlPriority !== null) {
+    activePriorityFilter = urlPriority;
+    localStorage.setItem('ew_priority_filter', urlPriority);
   }
 
   const urlPreset = sessionStorage.getItem('ew_pending_preset') || localStorage.getItem('ew_preset');
@@ -2117,6 +2172,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0603.0008</div>
+<div id="version-tag">v1.0603.0011</div>
 </body>
 </html>
