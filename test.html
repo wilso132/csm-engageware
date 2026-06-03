@@ -649,12 +649,12 @@
     <div id="preset-section">
       <div class="preset-section-label" data-i18n="preset_filters">Preset Filters</div>
       <div class="preset-buttons">
-        <button class="preset-btn" id="preset-t1-all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — All Open Tickets</button>
-        <button class="preset-btn" id="preset-t1-icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP (Open)</button>
-        <button class="preset-btn" id="preset-t1-nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP (Open)</button>
-        <button class="preset-btn" id="preset-t2-all"     onclick="loadPreset('t2-all')">    <span class="preset-spinner"></span>Tier 2 — All Open Tickets</button>
-        <button class="preset-btn" id="preset-aging-all"  onclick="loadPreset('aging-all')"> <span class="preset-spinner"></span>All Aging (30D+)</button>
-        <button class="preset-btn" id="preset-aging-90"   onclick="loadPreset('aging-90')">  <span class="preset-spinner"></span>All Aging (90D+)</button>
+        <button class="preset-btn" id="preset-t1-all" data-i18n="preset_t1_all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — All Open Tickets</button>
+        <button class="preset-btn" id="preset-t1-icp" data-i18n="preset_t1_icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP (Open)</button>
+        <button class="preset-btn" id="preset-t1-nonicp" data-i18n="preset_t1_nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP (Open)</button>
+        <button class="preset-btn" id="preset-t2-all" data-i18n="preset_t2_all"     onclick="loadPreset('t2-all')">    <span class="preset-spinner"></span>Tier 2 — All Open Tickets</button>
+        <button class="preset-btn" id="preset-aging-all" data-i18n="preset_aging_30"  onclick="loadPreset('aging-all')"> <span class="preset-spinner"></span>All Aging (30D+)</button>
+        <button class="preset-btn" id="preset-aging-90" data-i18n="preset_aging_90"   onclick="loadPreset('aging-90')">  <span class="preset-spinner"></span>All Aging (90D+)</button>
       </div>
     </div>
 
@@ -803,6 +803,12 @@ const I18N = {
     resolved_label:       'Resolved:',
     filter_by_product:    'Filter by product:',
     preset_filters:       'Preset Filters',
+    preset_t1_all:        'Tier 1 — All Open Tickets',
+    preset_t1_icp:        'Tier 1 — ICP (Open)',
+    preset_t1_nonicp:     'Tier 1 — Non-ICP (Open)',
+    preset_t2_all:        'Tier 2 — All Open Tickets',
+    preset_aging_30:      'All Aging (30D+)',
+    preset_aging_90:      'All Aging (90D+)',
     search_by:            'Search by Customer or Organization',
     all_products:         'All',
     last_comment:         'Last Comment',
@@ -851,6 +857,12 @@ const I18N = {
     resolved_label:       'Resueltos:',
     filter_by_product:    'Filtrar por producto:',
     preset_filters:       'Filtros Predefinidos',
+    preset_t1_all:        'Nivel 1 — Todos los Abiertos',
+    preset_t1_icp:        'Nivel 1 — ICP (Abiertos)',
+    preset_t1_nonicp:     'Nivel 1 — No-ICP (Abiertos)',
+    preset_t2_all:        'Nivel 2 — Todos los Abiertos',
+    preset_aging_30:      'Sin actividad (30D+)',
+    preset_aging_90:      'Sin actividad (90D+)',
     search_by:            'Buscar por Cliente u Organización',
     all_products:         'Todos',
     last_comment:         'Último Comentario',
@@ -877,10 +889,21 @@ function t(key) {
 }
 
 function applyLang() {
-  // Static data-i18n elements
+  // Static data-i18n elements — preset buttons have a spinner child so handle carefully
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
-    el.textContent = t(key);
+    const spinner = el.querySelector('.preset-spinner');
+    if (spinner) {
+      // Only update the text node, preserve the spinner
+      el.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) node.textContent = t(key);
+      });
+      // If no text node found, append one
+      const hasText = Array.from(el.childNodes).some(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+      if (!hasText) el.appendChild(document.createTextNode(t(key)));
+    } else {
+      el.textContent = t(key);
+    }
   });
 
   // Stat card labels
@@ -1575,9 +1598,9 @@ function renderRow(issue, tab) {
       const dateStr = last.created ? new Date(last.created).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) : '';
       const raw     = extractCommentText(last.body);
       const text    = raw.length > 300 ? raw.slice(0, 297) + '...' : raw;
-      commentRow = `<tr class="comment-row"><td colspan="6"><div class="comment-meta">${escHtml(author)} &middot; ${escHtml(dateStr)}</div><div class="comment-body">${escHtml(text)}</div></td></tr>`;
+      commentRow = `<tr class="comment-row"><td colspan="${6 + (activePreset ? 1 : 0) + 2}"><div class="comment-meta">${escHtml(author)} &middot; ${escHtml(dateStr)}</div><div class="comment-body">${escHtml(text)}</div></td></tr>`;
     } else {
-      commentRow = `<tr class="comment-row"><td colspan="6"><span class="comment-none">${t('no_comments')}</span></td></tr>`;
+      commentRow = `<tr class="comment-row"><td colspan="${6 + (activePreset ? 1 : 0) + 2}"><span class="comment-none">${t('no_comments')}</span></td></tr>`;
     }
   }
 
@@ -2041,6 +2064,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.2359</div>
+<div id="version-tag">v1.0603.0004</div>
 </body>
 </html>
