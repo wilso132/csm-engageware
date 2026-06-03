@@ -588,13 +588,24 @@
 
   /* ── Version footer ── */
   #version-tag {
-    display: block;
-    text-align: right;
-    padding: 16px 16px 8px;
+    position: fixed;
+    bottom: 10px;
+    right: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 10px;
     color: var(--muted);
-    opacity: 0.4;
+    opacity: 0.5;
     font-family: 'IBM Plex Mono', monospace;
+    pointer-events: none;
+  }
+  #version-tag img {
+    width: 16px !important;
+    height: 16px !important;
+    object-fit: contain;
+    display: inline-block;
+    flex-shrink: 0;
   }
 
   /* ── Loading / empty ── */
@@ -2172,6 +2183,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0603.0033</div>
+<div id="version-tag"><img src="Engageware_Heart.png" alt="">v1.0603.0043</div>
 </body>
 </html>
