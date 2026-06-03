@@ -1893,7 +1893,7 @@ async function loadPreset(key) {
       // Paginate until all results are fetched
       issues = [];
       var nextPageToken = null;
-      var fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate,comment,customfield_12284,customfield_10100,customfield_13703,customfield_13874';
+      var fields = 'summary,status,priority,issuetype,assignee,updated,created,resolutiondate,comment,project,customfield_12284,customfield_10100,customfield_13703,customfield_13874';
       do {
         var params = { jql: PRESET_QUERIES[key], fields: fields, maxResults: 100 };
         if (nextPageToken) params.nextPageToken = nextPageToken;
@@ -2041,6 +2041,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0602.2356</div>
+<div id="version-tag">v1.0602.2359</div>
 </body>
 </html>
