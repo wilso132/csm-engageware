@@ -889,18 +889,17 @@ function t(key) {
 }
 
 function applyLang() {
-  // Static data-i18n elements — preset buttons have a spinner child so handle carefully
+  // Static data-i18n elements — preset buttons have a spinner child so update only text nodes
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     const spinner = el.querySelector('.preset-spinner');
     if (spinner) {
-      // Only update the text node, preserve the spinner
+      // Find the trailing text node after the spinner and update it
+      let textNode = null;
       el.childNodes.forEach(node => {
-        if (node.nodeType === Node.TEXT_NODE) node.textContent = t(key);
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) textNode = node;
       });
-      // If no text node found, append one
-      const hasText = Array.from(el.childNodes).some(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
-      if (!hasText) el.appendChild(document.createTextNode(t(key)));
+      if (textNode) textNode.textContent = t(key);
     } else {
       el.textContent = t(key);
     }
@@ -2064,6 +2063,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0603.0004</div>
+<div id="version-tag">v1.0603.0005</div>
 </body>
 </html>
