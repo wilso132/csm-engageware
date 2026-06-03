@@ -373,7 +373,7 @@
     color: var(--muted);
     flex-shrink: 0;
   }
-  .resolved-day-btn {
+  .resolved-day-btn, .aging-day-btn {
     padding: 3px 8px;
     border-radius: 4px;
     border: 1px solid var(--border);
@@ -384,8 +384,8 @@
     cursor: pointer;
     transition: all 0.15s;
   }
-  .resolved-day-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .resolved-day-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+  .resolved-day-btn.active, .aging-day-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .resolved-day-btn:hover:not(.active), .aging-day-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
   .stat-value.danger { color: var(--danger); }
   .stat-value.warning { color: var(--warning); }
   .stat-value.success { color: var(--success); }
@@ -463,6 +463,7 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     overflow: hidden;
+      overflow-x: auto;
   }
   .table-header {
     display: flex;
@@ -491,7 +492,7 @@
 
   /* ── Last comment toggle ── */
   /* ── Product badges ── */
-  .product-badges { display: flex; flex-wrap: wrap; gap: 3px; }
+  .product-badges { display: flex; flex-wrap: wrap; gap: 3px; max-width: 180px; }
   .prod-badge {
     display: inline-block;
     padding: 2px 7px;
@@ -502,6 +503,9 @@
     background: var(--surface2);
     border: 1px solid var(--border);
     color: var(--text);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   /* Product filter bar */
   #product-filter-bar {
@@ -732,6 +736,15 @@
           <button class="resolved-day-btn" data-days="60">60d</button>
           <button class="resolved-day-btn" data-days="90">90d</button>
           <button class="resolved-day-btn" data-days="365">1y</button>
+        </div>
+      </div>
+      <div class="resolved-slider-wrap" id="aging-slider-wrap" style="display:none;">
+        <span>No update in:</span>
+        <div id="aging-day-btns" style="display:flex;gap:3px;">
+          <button class="aging-day-btn" data-days="14">14d</button>
+          <button class="aging-day-btn active" data-days="30">30d</button>
+          <button class="aging-day-btn" data-days="60">60d</button>
+          <button class="aging-day-btn" data-days="90">90d</button>
         </div>
       </div>
     </div>
@@ -1002,6 +1015,7 @@ let showComments = localStorage.getItem('ew_comments') === 'true';
 let allOrgs = [];
 let selectedOrg = null; // separate from selectedCustomer
 let resolvedDays = parseInt(localStorage.getItem('ew_resolved_days') || '30');
+let agingDays    = parseInt(localStorage.getItem('ew_aging_days')    || '30');
 let activeProductFilter = sessionStorage.getItem('ew_product_filter') || localStorage.getItem('ew_product_filter') || '';
 let activePreset = '';
 let presetCache = {}; // key -> {issues, ts}
@@ -1424,9 +1438,11 @@ function switchTab(tab) {
   const tabEl = document.getElementById('tab-' + tab);
   if (tabEl) tabEl.classList.add('active');
   localStorage.setItem('ew_tab', tab);
-  // Show resolved day buttons only on resolved tab
+  // Show resolved/aging day buttons on their respective tabs
   const sliderWrap = document.getElementById('resolved-slider-wrap');
   if (sliderWrap) sliderWrap.style.setProperty('display', tab === 'resolved' ? 'flex' : 'none', 'important');
+  const agingWrap = document.getElementById('aging-slider-wrap');
+  if (agingWrap) agingWrap.style.setProperty('display', tab === 'aging' ? 'flex' : 'none', 'important');
   updateURL();
   renderTab(tab);
 }
@@ -1682,6 +1698,22 @@ async function initApp() {
       if (currentTab === 'resolved') renderTab('resolved');
     });
   });
+  // Wire up aging day buttons
+  document.querySelectorAll('.aging-day-btn').forEach(function(btn) {
+    const days = parseInt(btn.getAttribute('data-days'));
+    if (days === agingDays) btn.classList.add('active');
+    else btn.classList.remove('active');
+    btn.addEventListener('click', function() {
+      agingDays = days;
+      localStorage.setItem('ew_aging_days', agingDays);
+      document.querySelectorAll('.aging-day-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateURL();
+      rebuildAgingBucket();
+      if (currentTab === 'aging') renderTab('aging');
+    });
+  });
+
   restoreFromState();
 }
 
@@ -1808,6 +1840,7 @@ function updateURL() {
   }
   if (currentTab && currentTab !== 'support') params.set('tab', currentTab);
   if (resolvedDays !== 30) params.set('resolved_days', resolvedDays);
+  if (agingDays !== 30)    params.set('aging_days', agingDays);
   if (activeProductFilter) params.set('product', activeProductFilter);
   const qs = params.toString();
   window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
@@ -1815,11 +1848,32 @@ function updateURL() {
 
 
 
+// ── Rebuild aging bucket from current source ─────────────────────────────────
+function rebuildAgingBucket() {
+  // For presets, rebuild from presetCache; for customer/org, rebuild from all open tickets
+  var allOpen = [];
+  if (activePreset && presetCache[activePreset]) {
+    var src = presetCache[activePreset].issues;
+    allOpen = src.filter(i => i.fields.status && i.fields.status.statusCategory && i.fields.status.statusCategory.key !== 'done');
+  } else {
+    // Merge support + engineering + ops as a proxy for all open tickets
+    allOpen = [...(issueCache['support'] || []), ...(issueCache['engineering'] || []), ...(issueCache['ops'] || [])];
+    // Deduplicate by key
+    var seen = new Set();
+    allOpen = allOpen.filter(i => { if (seen.has(i.key)) return false; seen.add(i.key); return true; });
+  }
+  var aged = allOpen.filter(i => {
+    var upd = i.fields.updated || i.fields.created;
+    return upd && (Date.now() - new Date(upd).getTime()) > agingDays * 86400000;
+  });
+  issueCache['aging'] = aged;
+  updateCount('aging', aged.length);
+}
+
 // ── Preset bucket splitting ──────────────────────────────────────────────────
-function splitPresetIntoBuckets(issues, presetKey) {
+function splitPresetIntoBuckets(issues) {
   // Buckets are NOT mutually exclusive — a ticket can appear in multiple buckets.
   // e.g. an aged support ticket appears in both Support AND Aging.
-  var agingDays = (presetKey === 'aging-90') ? 90 : 30;
 
   var open = issues.filter(i => i.fields.status && i.fields.status.statusCategory && i.fields.status.statusCategory.key !== 'done');
   var done = issues.filter(i => i.fields.status && i.fields.status.statusCategory && i.fields.status.statusCategory.key === 'done');
@@ -2063,6 +2117,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag">v1.0603.0005</div>
+<div id="version-tag">v1.0603.0008</div>
 </body>
 </html>
