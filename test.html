@@ -2246,7 +2246,7 @@ async function loadPreset(key) {
   var btn = document.getElementById('preset-' + key);
   if (btn) btn.classList.add('active', 'loading');
 
-  document.getElementById('customer-badge').classList.remove('visible');
+  // (customer-badge removed — multi-select tags handle display)
   document.getElementById('customer-search').value = '';
   document.getElementById('org-search').value = '';
   document.getElementById('stats-row').style.display = 'grid';
@@ -2377,7 +2377,7 @@ function restoreFromState() {
   const savedCustomers   = parseStoredMulti(savedCustomerStr);
   const savedOrgs        = parseStoredMulti(savedOrgStr);
 
-  console.log('[CSM] restoreFromState:', { savedCustomer, savedOrg, savedTab, orgsLen: allOrgs.length, customersLen: allCustomers.length });
+  console.log('[CSM] restoreFromState:', { savedCustomers, savedOrgs, savedTab, orgsLen: allOrgs.length, customersLen: allCustomers.length });
 
   function findMatch(value, list) {
     if (!value) return null;
@@ -2448,6 +2448,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag"><img src="Engageware_Heart.png" alt="">v1.0606.2120</div>
+<div id="version-tag"><img src="Engageware_Heart.png" alt="">v1.0606.2122</div>
 </body>
 </html>
