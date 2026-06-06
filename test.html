@@ -771,7 +771,7 @@
 
     <!-- RAL Panel -->
     <div id="ral-panel" style="display:none; margin-bottom:1rem;">
-      <div class="ral-panel-label">Risk Account Log (RAL)</div>
+      <div class="ral-panel-label">RAL Migration</div>
       <div class="ral-card" onclick="switchTab('ral')" title="View RAL tickets">
         <div class="ral-numbers">
           <span class="ral-num-closed" id="ral-closed-count">—</span>
@@ -1341,13 +1341,11 @@ function setCsmMode(mode) {
     document.getElementById('bucket-tabs').style.display = 'flex';
     loadAllBuckets();
   } else {
-    // Switched to All Accounts with no selection — clear the view
-    issueCache = {};
-    document.getElementById('stats-row').style.display = 'none';
-    document.getElementById('bucket-tabs').style.display = 'none';
-    document.getElementById('issues-panel').innerHTML = '';
-    const ralPanel = document.getElementById('ral-panel');
-    if (ralPanel) ralPanel.style.display = 'none';
+    // Switched to All Accounts with no selection — load unfiltered view
+    clearIDBBuckets();
+    document.getElementById('stats-row').style.display = 'grid';
+    document.getElementById('bucket-tabs').style.display = 'flex';
+    loadAllBuckets();
   }
 }
 
@@ -1711,7 +1709,7 @@ const BUCKETS = {
   fr:          () => addCsmFilter(`project in ("FR","PRD")${contextClause()} ORDER BY statusCategory ASC, priority ASC`),
 };
 
-// ── RAL (Risk Account Log) ───────────────────────────────────────────────────
+// ── RAL Migration ──────────────────────────────────────────────────────────────
 function getRalJql() {
   const csmFilter = csmJql();
   if (selectedCustomers.length > 0 || selectedOrgs.length > 0) {
@@ -1722,7 +1720,8 @@ function getRalJql() {
   if (csmFilter) {
     return `project = "${RAL_PROJECT}" AND ${csmFilter} ORDER BY created DESC`;
   }
-  return null; // no meaningful filter
+  // No customer/org/CSM filter — fetch all RAL tickets (unfiltered)
+  return `project = "${RAL_PROJECT}" ORDER BY created DESC`;
 }
 
 async function loadRalBucket() {
@@ -1765,13 +1764,6 @@ async function loadRalBucket() {
 
 // ── Load data ─────────────────────────────────────────────────────────────────
 async function loadAllBuckets() {
-  // Guard — refuse to run unscoped (would pull every ticket in those projects)
-  const hasCtx = selectedCustomers.length > 0 || selectedOrgs.length > 0;
-  if (!hasCtx && (csmMode !== 'mine' || !currentUserAccountId)) {
-    console.log('[CSM] loadAllBuckets: no scope — skipping');
-    return;
-  }
-
   const OPEN_KEYS = ['support', 'engineering', 'ops', 'aging', 'fr'];
   const ALL_KEYS  = ['support', 'engineering', 'ops', 'aging', 'fr', 'resolved'];
 
@@ -1960,7 +1952,7 @@ function renderTab(tab) {
     aging:       'Aging – No update in 14+ days',
     resolved:    'Resolved – Last 30 days',
     fr:          'Feature Requests',
-    ral:         'Risk Account Log – All Time',
+    ral:         'RAL Migration – All Time',
   };
 
   // For resolved tab, filter client-side by resolvedDays (we always fetch 365d)
@@ -2607,7 +2599,10 @@ function restoreFromState() {
     document.getElementById('bucket-tabs').style.display = 'flex';
     loadAllBuckets(); // loadRalBucket is called inside loadAllBuckets
   } else {
-    loadRalBucket(); // csmMode='all', no selection — only RAL makes sense if scoped
+    // All Accounts mode with no selection — load unfiltered view
+    document.getElementById('stats-row').style.display = 'grid';
+    document.getElementById('bucket-tabs').style.display = 'flex';
+    loadAllBuckets(); // loadRalBucket called inside
   }
   // Always re-evaluate clear button after state is fully restored
   updateClearBtn();
@@ -2635,6 +2630,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag"><img src="Engageware_Heart.png" alt="">v1.0606.2132</div>
+<div id="version-tag"><img src="Engageware_Heart.png" alt="">v1.0606.2137</div>
 </body>
 </html>
