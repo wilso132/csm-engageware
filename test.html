@@ -1099,8 +1099,117 @@ let activePriorityFilter = sessionStorage.getItem('ew_priority_filter') || local
 let activePreset = '';
 let presetCache = {}; // key -> {issues, ts}
 const PRESET_TTL = 30 * 60 * 1000; // 30 minutes
-let currentTab     = 'support';
-let issueCache     = {};
+let currentTab   = 'support';
+let issueCache   = {};
+
+// ── IndexedDB cache ───────────────────────────────────────────────────────────
+// Replaces sessionStorage to avoid 5 MB cap. Three records keyed by bucket type;
+// each stores the filter-state key so stale entries are auto-rejected.
+const IDB_NAME    = 'csm-cache';
+const IDB_STORE   = 'buckets';
+const TTL_OPEN     =  5 * 60 * 1000;  //  5 min  — open ticket buckets
+const TTL_RESOLVED = 30 * 60 * 1000;  // 30 min  — resolved (large, slow-changing)
+const TTL_RAL      = 15 * 60 * 1000;  // 15 min  — RAL tickets
+
+// Cache key encodes every dimension that affects what the API returns.
+// csmMode='mine' includes the account ID so two different CSMs never share cache.
+// selectedCustomers/Orgs are sorted so order doesn't matter.
+// activePreset captures tier/ICP queries. agingDays/resolvedDays are client-side
+// only (we always over-fetch) so they are intentionally excluded.
+function getCacheKey() {
+  const csmKey = (csmMode === 'mine' && currentUserAccountId)
+    ? 'mine:' + currentUserAccountId
+    : 'all';
+  return JSON.stringify({
+    customers: [...selectedCustomers].sort(),
+    orgs:      [...selectedOrgs].sort(),
+    preset:    activePreset,
+    csm:       csmKey,
+  });
+}
+
+function openIDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(IDB_NAME, 1);
+    r.onupgradeneeded = e => {
+      if (!e.target.result.objectStoreNames.contains(IDB_STORE))
+        e.target.result.createObjectStore(IDB_STORE);
+    };
+    r.onsuccess = e => res(e.target.result);
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function idbGet(recordKey) {
+  try {
+    const db  = await openIDB();
+    const tx  = db.transaction(IDB_STORE, 'readonly');
+    const row = await new Promise(r => {
+      const q = tx.objectStore(IDB_STORE).get(recordKey);
+      q.onsuccess = e => r(e.target.result);
+      q.onerror   = ()  => r(null);
+    });
+    db.close();
+    return row;
+  } catch(e) { return null; }
+}
+
+async function idbPut(recordKey, value) {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, recordKey);
+    await new Promise(r => { tx.oncomplete = r; tx.onerror = r; });
+    db.close();
+  } catch(e) { console.warn('[CSM] IDB write failed:', e.message); }
+}
+
+async function idbDelete(...keys) {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    keys.forEach(k => tx.objectStore(IDB_STORE).delete(k));
+    await new Promise(r => { tx.oncomplete = r; tx.onerror = r; });
+    db.close();
+  } catch(e) {}
+}
+
+// ── Per-bucket read/write helpers ─────────────────────────────────────────────
+async function loadOpenFromIDB() {
+  const row = await idbGet('main');
+  if (!row || Date.now() - row.ts > TTL_OPEN || row.key !== getCacheKey()) return null;
+  console.log('[CSM] IDB hit: open buckets');
+  return row.data;
+}
+async function saveOpenToIDB() {
+  const { resolved, ral, ...open } = issueCache;
+  await idbPut('main', { key: getCacheKey(), ts: Date.now(), data: JSON.parse(JSON.stringify(open)) });
+}
+
+async function loadResolvedFromIDB() {
+  const row = await idbGet('resolved');
+  if (!row || Date.now() - row.ts > TTL_RESOLVED || row.key !== getCacheKey()) return null;
+  console.log('[CSM] IDB hit: resolved');
+  return row.data;
+}
+async function saveResolvedToIDB() {
+  if (!issueCache['resolved']) return;
+  await idbPut('resolved', { key: getCacheKey(), ts: Date.now(), data: issueCache['resolved'] });
+}
+
+async function loadRalFromIDB() {
+  const row = await idbGet('ral');
+  if (!row || Date.now() - row.ts > TTL_RAL || row.key !== getCacheKey()) return null;
+  console.log('[CSM] IDB hit: RAL');
+  return row.data;
+}
+async function saveRalToIDB() {
+  if (!issueCache['ral']) return;
+  await idbPut('ral', { key: getCacheKey(), ts: Date.now(), data: issueCache['ral'] });
+}
+
+// Call this whenever the user explicitly clears filters (force re-fetch next load)
+function clearIDBBuckets() { idbDelete('main', 'resolved', 'ral'); }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 function startAuth() {
@@ -1226,9 +1335,19 @@ function setCsmMode(mode) {
   if (hasSelection || activePreset) {
     if (activePreset) loadPreset(activePreset);
     else loadAllBuckets();
+  } else if (mode === 'mine' && currentUserAccountId) {
+    // Switched to My Accounts with no specific selection — auto-load all CSM accounts
+    document.getElementById('stats-row').style.display = 'grid';
+    document.getElementById('bucket-tabs').style.display = 'flex';
+    loadAllBuckets();
   } else {
-    // No customer/org/preset — reload just RAL for the CSM filter
-    loadRalBucket();
+    // Switched to All Accounts with no selection — clear the view
+    issueCache = {};
+    document.getElementById('stats-row').style.display = 'none';
+    document.getElementById('bucket-tabs').style.display = 'none';
+    document.getElementById('issues-panel').innerHTML = '';
+    const ralPanel = document.getElementById('ral-panel');
+    if (ralPanel) ralPanel.style.display = 'none';
   }
 }
 
@@ -1477,6 +1596,7 @@ function clearSelection() {
 function clearCustomer() { clearSelection(); }
 
 function clearAllFilters() {
+  clearIDBBuckets(); // force re-fetch next load
   clearSelection();
   if (activePreset) {
     activePreset = '';
@@ -1575,13 +1695,20 @@ function makeJql() {
   return customerJql(selectedCustomers);
 }
 
+// Returns ' AND <customer/org filter>' only when a selection exists;
+// empty string when browsing by CSM field alone (no specific account selected).
+function contextClause() {
+  if (selectedCustomers.length > 0 || selectedOrgs.length > 0) return ' AND ' + makeJql();
+  return '';
+}
+
 const BUCKETS = {
-  support:     () => addCsmFilter(`project in ${jqlProjects(SUPPORT_PROJECTS)} AND ${makeJql()} AND statusCategory != Done ORDER BY priority ASC, created ASC`),
-  engineering: () => addCsmFilter(`project in ${jqlProjects(ENGINEERING_PROJECTS)} AND ${makeJql()} AND statusCategory != Done ORDER BY priority ASC, created ASC`),
-  ops:         () => addCsmFilter(`project in ${jqlProjects(OPS_PROJECTS)} AND ${makeJql()} AND statusCategory != Done ORDER BY priority ASC, created ASC`),
-  aging:       () => addCsmFilter(`project in ${jqlProjects([...SUPPORT_PROJECTS,...OPS_PROJECTS])} AND ${makeJql()} AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC`),
-  resolved:    () => addCsmFilter(`project in ${jqlProjects(ALL_PROJECTS)} AND ${makeJql()} AND statusCategory = Done AND resolved >= "-365d" ORDER BY resolutiondate DESC`),
-  fr:          () => addCsmFilter(`project in ("FR","PRD") AND ${makeJql()} ORDER BY statusCategory ASC, priority ASC`),
+  support:     () => addCsmFilter(`project in ${jqlProjects(SUPPORT_PROJECTS)}${contextClause()} AND statusCategory != Done ORDER BY priority ASC, created ASC`),
+  engineering: () => addCsmFilter(`project in ${jqlProjects(ENGINEERING_PROJECTS)}${contextClause()} AND statusCategory != Done ORDER BY priority ASC, created ASC`),
+  ops:         () => addCsmFilter(`project in ${jqlProjects(OPS_PROJECTS)}${contextClause()} AND statusCategory != Done ORDER BY priority ASC, created ASC`),
+  aging:       () => addCsmFilter(`project in ${jqlProjects([...SUPPORT_PROJECTS,...OPS_PROJECTS])}${contextClause()} AND statusCategory != Done AND updated <= "-14d" ORDER BY updated ASC`),
+  resolved:    () => addCsmFilter(`project in ${jqlProjects(ALL_PROJECTS)}${contextClause()} AND statusCategory = Done AND resolved >= "-365d" ORDER BY resolutiondate DESC`),
+  fr:          () => addCsmFilter(`project in ("FR","PRD")${contextClause()} ORDER BY statusCategory ASC, priority ASC`),
 };
 
 // ── RAL (Risk Account Log) ───────────────────────────────────────────────────
@@ -1599,11 +1726,27 @@ function getRalJql() {
 }
 
 async function loadRalBucket() {
-  const panel   = document.getElementById('ral-panel');
-  const jql     = getRalJql();
+  const panel = document.getElementById('ral-panel');
+  const jql   = getRalJql();
   if (!jql) { if (panel) panel.style.display = 'none'; return; }
-
   if (panel) panel.style.display = 'block';
+
+  function applyRalData(issues) {
+    issueCache['ral'] = issues;
+    const closed = issues.filter(i => i.fields.status?.statusCategory?.key === 'done');
+    const open   = issues.filter(i => i.fields.status?.statusCategory?.key !== 'done');
+    document.getElementById('ral-closed-count').textContent = closed.length;
+    document.getElementById('ral-open-count').textContent   = open.length;
+    const cntEl = document.getElementById('cnt-ral');
+    if (cntEl) cntEl.textContent = issues.length;
+    if (currentTab === 'ral') renderTab('ral');
+  }
+
+  // Check IDB cache first
+  const cached = await loadRalFromIDB();
+  if (cached) { applyRalData(cached); return; }
+
+  // Cache miss — show spinners and fetch
   document.getElementById('ral-closed-count').innerHTML = '<span class="ral-spinner"></span>';
   document.getElementById('ral-open-count').innerHTML   = '<span class="ral-spinner"></span>';
   const cntEl = document.getElementById('cnt-ral');
@@ -1611,16 +1754,8 @@ async function loadRalBucket() {
 
   try {
     const issues = await searchIssues(jql, 'summary,status,priority,assignee,created,updated,resolutiondate,comment,customfield_12284,customfield_10100', 500);
-    issueCache['ral'] = issues;
-
-    const closed = issues.filter(i => i.fields.status?.statusCategory?.key === 'done');
-    const open   = issues.filter(i => i.fields.status?.statusCategory?.key !== 'done');
-
-    document.getElementById('ral-closed-count').textContent = closed.length;
-    document.getElementById('ral-open-count').textContent   = open.length;
-    if (cntEl) cntEl.textContent = issues.length;
-
-    if (currentTab === 'ral') renderTab('ral');
+    applyRalData(issues);
+    saveRalToIDB();
   } catch(e) {
     console.error('[CSM] RAL load failed:', e);
     document.getElementById('ral-closed-count').textContent = '!';
@@ -1630,16 +1765,61 @@ async function loadRalBucket() {
 
 // ── Load data ─────────────────────────────────────────────────────────────────
 async function loadAllBuckets() {
-  const keys = Object.keys(BUCKETS);
+  // Guard — refuse to run unscoped (would pull every ticket in those projects)
+  const hasCtx = selectedCustomers.length > 0 || selectedOrgs.length > 0;
+  if (!hasCtx && (csmMode !== 'mine' || !currentUserAccountId)) {
+    console.log('[CSM] loadAllBuckets: no scope — skipping');
+    return;
+  }
 
-  // Reset stats
-  keys.forEach(k => {
+  const OPEN_KEYS = ['support', 'engineering', 'ops', 'aging', 'fr'];
+  const ALL_KEYS  = ['support', 'engineering', 'ops', 'aging', 'fr', 'resolved'];
+
+  // ── Try IDB cache ──────────────────────────────────────────────────────────
+  const cachedOpen = await loadOpenFromIDB();
+  if (cachedOpen) {
+    Object.assign(issueCache, cachedOpen);
+    OPEN_KEYS.forEach(k => { if (cachedOpen[k]) updateCount(k, cachedOpen[k].length); });
+
+    // Also try cached resolved (separate TTL)
+    const cachedResolved = await loadResolvedFromIDB();
+    if (cachedResolved) {
+      issueCache['resolved'] = cachedResolved;
+      const cutoff = Date.now() - resolvedDays * 86400000;
+      updateCount('resolved', cachedResolved.filter(i => {
+        const d = i.fields.resolutiondate || i.fields.updated;
+        return d && new Date(d).getTime() >= cutoff;
+      }).length);
+    } else {
+      // Fetch resolved in background (won't block render)
+      searchIssues(BUCKETS['resolved']())
+        .then(issues => {
+          issueCache['resolved'] = issues;
+          const cutoff = Date.now() - resolvedDays * 86400000;
+          updateCount('resolved', issues.filter(i => {
+            const d = i.fields.resolutiondate || i.fields.updated;
+            return d && new Date(d).getTime() >= cutoff;
+          }).length);
+          saveResolvedToIDB();
+        })
+        .catch(e => console.error('[CSM] resolved background fetch failed:', e));
+    }
+
+    updateProductFilterBar(currentTab);
+    updatePriorityFilterBar(currentTab);
+    renderTab(currentTab);
+    loadRalBucket(); // has its own IDB cache
+    return;
+  }
+
+  // ── Cache miss — reset stats and fetch from API ───────────────────────────
+  ALL_KEYS.forEach(k => {
     const el = document.getElementById(`stat-${k === 'engineering' ? 'eng' : k}`);
     if (el) el.textContent = '…';
   });
 
-  // Load all in parallel
-  await Promise.all(keys.map(async key => {
+  // Fetch open buckets + resolved in parallel
+  await Promise.all(ALL_KEYS.map(async key => {
     try {
       const issues = await searchIssues(BUCKETS[key]());
       issueCache[key] = issues;
@@ -1650,27 +1830,24 @@ async function loadAllBuckets() {
     }
   }));
 
-  // Load RAL in background (non-blocking)
-  loadRalBucket();
-
-  // Update product + priority filter bars now that all buckets are loaded
-  updateProductFilterBar(currentTab);
-  updatePriorityFilterBar(currentTab);
-
-  // Update resolved stat tile to reflect current day filter
+  // Update resolved stat tile with day filter applied
   if (issueCache['resolved']) {
     const cutoff = Date.now() - resolvedDays * 86400000;
     const filteredCount = issueCache['resolved'].filter(i => {
       const d = i.fields.resolutiondate || i.fields.updated;
       return d && new Date(d).getTime() >= cutoff;
     }).length;
-    const el = document.getElementById('stat-resolved');
-    if (el) el.textContent = filteredCount;
-    const cnt = document.getElementById('cnt-resolved');
-    if (cnt) cnt.textContent = filteredCount;
+    updateCount('resolved', filteredCount);
   }
 
+  // Persist to IDB (open and resolved use separate records + TTLs)
+  saveOpenToIDB();
+  saveResolvedToIDB();
+
+  updateProductFilterBar(currentTab);
+  updatePriorityFilterBar(currentTab);
   renderTab(currentTab);
+  loadRalBucket(); // has its own IDB cache
 }
 
 function updateCount(key, count) {
@@ -1835,7 +2012,7 @@ function renderTab(tab) {
             <th>Priority</th>
             <th>Assignee</th>
             <th>${tab === 'resolved' ? 'Resolved' : tab === 'ral' ? 'Status / Updated' : 'Updated'}</th>
-            ${activePreset ? '<th>Customer(s)</th>' : ''}
+            <th>Customer(s)</th>
             <th>Created</th>
             <th>Product</th>
           </tr>
@@ -1901,9 +2078,9 @@ function renderRow(issue, tab) {
       const dateStr = last.created ? new Date(last.created).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) : '';
       const raw     = extractCommentText(last.body);
       const text    = raw.length > 300 ? raw.slice(0, 297) + '...' : raw;
-      commentRow = `<tr class="comment-row"><td colspan="${6 + (activePreset ? 1 : 0) + 2}"><div class="comment-meta">${escHtml(author)} &middot; ${escHtml(dateStr)}</div><div class="comment-body">${escHtml(text)}</div></td></tr>`;
+      commentRow = `<tr class="comment-row"><td colspan="9"><div class="comment-meta">${escHtml(author)} &middot; ${escHtml(dateStr)}</div><div class="comment-body">${escHtml(text)}</div></td></tr>`;
     } else {
-      commentRow = `<tr class="comment-row"><td colspan="${6 + (activePreset ? 1 : 0) + 2}"><span class="comment-none">${t('no_comments')}</span></td></tr>`;
+      commentRow = `<tr class="comment-row"><td colspan="9"><span class="comment-none">${t('no_comments')}</span></td></tr>`;
     }
   }
 
@@ -1918,7 +2095,7 @@ function renderRow(issue, tab) {
     <td><span class="priority-dot ${prioClass}"></span>${priority}</td>
     <td style="font-size:12px;color:var(--muted)">${escHtml(assignee)}</td>
     <td>${ageStr}</td>
-    ${activePreset ? `<td style="font-size:11px;color:var(--muted)">${escHtml(customers)}</td>` : ''}
+    <td style="font-size:11px;color:var(--muted)">${escHtml(customers)}</td>
     <td style="font-size:11px;color:var(--muted)">${escHtml(createdStr)}</td>
     <td>${productList.length ? `<div class="product-badges">${productList.map(p=>`<span class="prod-badge">${escHtml(p)}</span>`).join('')}</div>` : ''}</td>
   </tr>${commentRow}`;
@@ -2050,8 +2227,7 @@ function copyTable(btn, tab) {
 
   const dateCol = tab === 'resolved' ? 'Resolved' : 'Updated';
   const headers = ['Key', 'Summary', 'Status', 'Priority', 'Assignee', dateCol];
-  if (activePreset) headers.push('Customer(s)');
-  headers.push('Created', 'Product');
+  headers.push('Customer(s)', 'Created', 'Product');
   if (showComments) headers.push('Last Comment Author', 'Last Comment Date', 'Last Comment');
 
   const rows = issues.map(function(issue) {
@@ -2068,7 +2244,7 @@ function copyTable(btn, tab) {
       f.assignee && f.assignee.displayName ? f.assignee.displayName : '',
       date,
     ];
-    if (activePreset) row.push((f.customfield_10100 || []).map(function(c) { return c.value; }).join(', '));
+    row.push((f.customfield_10100 || []).map(function(c) { return c.value; }).join(', '));
     row.push(createdDate, productVal);
     if (showComments) {
       const comments = (f.comment && f.comment.comments) ? f.comment.comments : [];
@@ -2316,6 +2492,8 @@ async function loadPreset(key) {
     var supTab = document.getElementById('tab-support');
     if (supTab) supTab.classList.add('active');
     renderTab('support');
+    loadRalBucket(); // load RAL panel for the active preset/CSM filter
+    updateClearBtn();
   } catch(e) {
     console.error('[CSM] Preset load failed:', e);
     if (btn) btn.classList.remove('active', 'loading');
@@ -2423,7 +2601,16 @@ function restoreFromState() {
     loadAllBuckets();
   } else if (urlPreset && getPresetQueries()[urlPreset]) {
     loadPreset(urlPreset);
+  } else if (csmMode === 'mine' && currentUserAccountId) {
+    // No saved customer/org/preset but My Accounts is active — auto-load
+    document.getElementById('stats-row').style.display = 'grid';
+    document.getElementById('bucket-tabs').style.display = 'flex';
+    loadAllBuckets(); // loadRalBucket is called inside loadAllBuckets
+  } else {
+    loadRalBucket(); // csmMode='all', no selection — only RAL makes sense if scoped
   }
+  // Always re-evaluate clear button after state is fully restored
+  updateClearBtn();
 }
 
 init();
@@ -2448,6 +2635,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag"><img src="Engageware_Heart.png" alt="">v1.0606.2122</div>
+<div id="version-tag"><img src="Engageware_Heart.png" alt="">v1.0606.2132</div>
 </body>
 </html>
