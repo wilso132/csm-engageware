@@ -654,7 +654,7 @@
   .ms-tag-remove { background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; padding:0; margin-left:2px; }
   .ms-tag-remove:hover { color:var(--danger); }
   .dropdown-item.selected-item { color:var(--accent); }
-  .dropdown-item.selected-item::before { content:'\u2713 '; font-weight:600; }
+  .dropdown-item.selected-item::before { content:'✓ '; font-weight:600; }
 
   /* ── RAL Panel ── */
   #ral-panel { margin-bottom:1rem; }
@@ -691,20 +691,14 @@
   <!-- App (shown after auth) -->
   <div id="app">
     <!-- CSM / My Accounts filter -->
-    <div id="csm-filter-row" style="display:none">
-      <span class="csm-section-label">View</span>
-      <div class="csm-btn-group">
-        <button class="csm-btn active" id="csm-btn-mine" onclick="setCsmMode('mine')">My Accounts</button>
-        <button class="csm-btn" id="csm-btn-all" onclick="setCsmMode('all')">All Accounts</button>
-      </div>
-      <span id="csm-user-chip"></span>
-      <button id="clear-filters-btn" onclick="clearAllFilters()" style="display:none;margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-family:'IBM Plex Sans',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">&#10005; Clear Filters</button>
-    </div>
-
     <!-- Preset filters -->
     <div id="preset-section">
-      <div class="preset-section-label" data-i18n="preset_filters">Preset Filters</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="preset-section-label" data-i18n="preset_filters" style="margin-bottom:0">Preset Filters</div>
+        <button id="clear-filters-btn" onclick="clearAllFilters()" style="display:none;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-family:'IBM Plex Sans',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">&#10005; Clear Filters</button>
+      </div>
       <div class="preset-buttons">
+        <button class="preset-btn" id="preset-my-accounts" onclick="toggleMyAccounts()"><span class="preset-spinner"></span>My Accounts</button>
         <button class="preset-btn" id="preset-t1-all" data-i18n="preset_t1_all"     onclick="loadPreset('t1-all')">    <span class="preset-spinner"></span>Tier 1 — All Open Tickets</button>
         <button class="preset-btn" id="preset-t1-icp" data-i18n="preset_t1_icp"     onclick="loadPreset('t1-icp')">    <span class="preset-spinner"></span>Tier 1 — ICP (Open)</button>
         <button class="preset-btn" id="preset-t1-nonicp" data-i18n="preset_t1_nonicp"  onclick="loadPreset('t1-nonicp')"> <span class="preset-spinner"></span>Tier 1 — Non-ICP (Open)</button>
@@ -1302,7 +1296,7 @@ function fetchCurrentUser() {
       if (currentUserAccountId) {
         currentUserName = payload.name || payload.email || '';
         const chip = document.getElementById('csm-user-chip');
-        if (chip && currentUserName) { chip.textContent = '(' + currentUserName + ')'; chip.classList.add('visible'); }
+        if (chip && currentUserName) chip.textContent = '(' + currentUserName + ')';
         console.log('[CSM] User ID from token:', currentUserAccountId);
         return;
       }
@@ -1326,27 +1320,20 @@ function addCsmFilter(jql) {
 function setCsmMode(mode) {
   csmMode = mode;
   localStorage.setItem('ew_csm_mode', mode);
-  document.getElementById('csm-btn-mine').classList.toggle('active', mode === 'mine');
-  document.getElementById('csm-btn-all').classList.toggle('active', mode === 'all');
+  const myBtn = document.getElementById('preset-my-accounts');
+  if (myBtn) myBtn.classList.toggle('active', mode === 'mine');
   issueCache = {};
+  clearIDBBuckets();
   updateURL();
   updateClearBtn();
-  const hasSelection = selectedCustomers.length > 0 || selectedOrgs.length > 0;
-  if (hasSelection || activePreset) {
-    if (activePreset) loadPreset(activePreset);
-    else loadAllBuckets();
-  } else if (mode === 'mine' && currentUserAccountId) {
-    // Switched to My Accounts with no specific selection — auto-load all CSM accounts
-    document.getElementById('stats-row').style.display = 'grid';
-    document.getElementById('bucket-tabs').style.display = 'flex';
-    loadAllBuckets();
-  } else {
-    // Switched to All Accounts with no selection — load unfiltered view
-    clearIDBBuckets();
-    document.getElementById('stats-row').style.display = 'grid';
-    document.getElementById('bucket-tabs').style.display = 'flex';
-    loadAllBuckets();
-  }
+  document.getElementById('stats-row').style.display = 'grid';
+  document.getElementById('bucket-tabs').style.display = 'flex';
+  if (activePreset) loadPreset(activePreset);
+  else loadAllBuckets();
+}
+
+function toggleMyAccounts() {
+  setCsmMode(csmMode === 'mine' ? 'all' : 'mine');
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -1595,6 +1582,12 @@ function clearCustomer() { clearSelection(); }
 
 function clearAllFilters() {
   clearIDBBuckets(); // force re-fetch next load
+  if (csmMode === 'mine') {
+    csmMode = 'all';
+    localStorage.setItem('ew_csm_mode', 'all');
+    const myBtn = document.getElementById('preset-my-accounts');
+    if (myBtn) myBtn.classList.remove('active');
+  }
   clearSelection();
   if (activePreset) {
     activePreset = '';
@@ -1617,7 +1610,7 @@ function clearAllFilters() {
 function updateClearBtn() {
   const btn = document.getElementById('clear-filters-btn');
   if (!btn) return;
-  const hasFilters = selectedCustomers.length > 0 || selectedOrgs.length > 0 || activePreset || activeProductFilter || activePriorityFilter;
+  const hasFilters = selectedCustomers.length > 0 || selectedOrgs.length > 0 || activePreset || activeProductFilter || activePriorityFilter || csmMode === 'mine';
   btn.style.display = hasFilters ? 'inline-block' : 'none';
 }
 
@@ -1711,17 +1704,24 @@ const BUCKETS = {
 
 // ── RAL Migration ──────────────────────────────────────────────────────────────
 function getRalJql() {
+  const parts = [`project = "${RAL_PROJECT}"`];
+
+  // Apply tier/ICP filter from active preset — but intentionally omit
+  // statusCategory so RAL shows both open and closed tickets for that tier.
+  if      (activePreset === 't1-all')    parts.push('cf[13703] = "Tier 1"');
+  else if (activePreset === 't1-icp')    parts.push('cf[13703] = "Tier 1"', 'cf[13874] = "Yes"');
+  else if (activePreset === 't1-nonicp') parts.push('cf[13703] = "Tier 1"', 'cf[13874] = "No"');
+  else if (activePreset === 't2-all')    parts.push('cf[13703] = "Tier 2"');
+  // aging presets and no-preset: no tier restriction
+
+  // Apply customer/org selection
+  if (selectedCustomers.length > 0 || selectedOrgs.length > 0) parts.push(makeJql());
+
+  // Apply CSM field filter when in My Accounts mode
   const csmFilter = csmJql();
-  if (selectedCustomers.length > 0 || selectedOrgs.length > 0) {
-    const parts = [`project = "${RAL_PROJECT}"`, makeJql()];
-    if (csmFilter) parts.push(csmFilter);
-    return parts.join(' AND ') + ' ORDER BY created DESC';
-  }
-  if (csmFilter) {
-    return `project = "${RAL_PROJECT}" AND ${csmFilter} ORDER BY created DESC`;
-  }
-  // No customer/org/CSM filter — fetch all RAL tickets (unfiltered)
-  return `project = "${RAL_PROJECT}" ORDER BY created DESC`;
+  if (csmFilter) parts.push(csmFilter);
+
+  return parts.join(' AND ') + ' ORDER BY created DESC';
 }
 
 async function loadRalBucket() {
@@ -2140,11 +2140,9 @@ async function initApp() {
   fetchCurrentUser();
   await Promise.all([loadCustomers(), loadOrgs()]);
 
-  // Show CSM filter row
-  const csmRow = document.getElementById('csm-filter-row');
-  if (csmRow) csmRow.style.display = 'flex';
-  document.getElementById('csm-btn-mine').classList.toggle('active', csmMode === 'mine');
-  document.getElementById('csm-btn-all').classList.toggle('active', csmMode === 'all');
+  // Set My Accounts button initial active state
+  const myBtn = document.getElementById('preset-my-accounts');
+  if (myBtn) myBtn.classList.toggle('active', csmMode === 'mine');
   updateClearBtn();
   applyLang();
   // Wire up resolved slider
@@ -2531,8 +2529,8 @@ function restoreFromState() {
   sessionStorage.removeItem('ew_pending_csm_mode');
   if (savedCsmMode !== csmMode) {
     csmMode = savedCsmMode;
-    document.getElementById('csm-btn-mine').classList.toggle('active', csmMode === 'mine');
-    document.getElementById('csm-btn-all').classList.toggle('active', csmMode === 'all');
+    const myBtn = document.getElementById('preset-my-accounts');
+    if (myBtn) myBtn.classList.toggle('active', csmMode === 'mine');
   }
 
   function parseStoredMulti(val) {
@@ -2630,6 +2628,6 @@ init();
   }
 })();
 </script>
-<div id="version-tag"><img src="Engageware_Heart.png" alt="">v1.0606.2137</div>
+<div id="version-tag"><img src="Engageware_Heart.png" alt="">v1.0606.2145</div>
 </body>
 </html>
